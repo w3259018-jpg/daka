@@ -1,0 +1,31 @@
+{
+  "pages": [
+    "pages/tasks/tasks",
+    "pages/forum/forum",
+    "pages/rank/rank",
+    "pages/profile/profile",
+    "pages/task/task",
+    "pages/item/item",
+    "pages/post/post",
+    "pages/join/join"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "打卡监督",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#888",
+    "selectedColor": "#3aa675",
+    "backgroundColor": "#ffffff",
+    "list": [
+      { "pagePath": "pages/tasks/tasks",   "text": "任务" },
+      { "pagePath": "pages/forum/forum",   "text": "论坛" },
+      { "pagePath": "pages/rank/rank",     "text": "排行" },
+      { "pagePath": "pages/profile/profile","text": "我的" }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

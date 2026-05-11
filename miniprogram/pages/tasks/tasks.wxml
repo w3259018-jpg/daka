@@ -1,0 +1,36 @@
+<view class="card">
+  <view class="row between">
+    <view class="title">我的任务</view>
+    <view class="row">
+      <view class="btn btn-line btn-mini" style="margin-right:10rpx;" bindtap="toggleJoin">{{showJoin ? '收起' : '加入'}}</view>
+      <view class="btn btn-line btn-mini" bindtap="toggleCreate">{{showCreate ? '收起' : '+ 新建'}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showCreate}}" style="margin-top:16rpx;">
+    <input class="input" placeholder="任务名称" value="{{name}}" bindinput="onInput" data-k="name" />
+    <picker mode="date" value="{{startDate}}" bindchange="pickStart">
+      <view class="input">开始日期：{{startDate || '点击选择'}}</view>
+    </picker>
+    <picker mode="date" value="{{endDate}}" bindchange="pickEnd">
+      <view class="input">结束日期：{{endDate || '点击选择'}}</view>
+    </picker>
+    <button class="btn" bindtap="create">创建任务</button>
+  </view>
+
+  <view wx:if="{{showJoin}}" style="margin-top:16rpx;">
+    <input class="input" placeholder="输入邀请码" value="{{joinCode}}" bindinput="onInput" data-k="joinCode" />
+    <button class="btn" bindtap="join">下一步</button>
+  </view>
+</view>
+
+<view class="card">
+  <view wx:for="{{tasks}}" wx:key="id" class="row between" style="padding:20rpx 0; border-top:1rpx solid #eee;" bindtap="open" data-id="{{item.id}}">
+    <view style="flex:1;">
+      <view>{{item.name}}<text class="tag">{{item.role==='admin' ? '管理员' : '成员'}}</text></view>
+      <view class="muted">{{item.start_date || '不限'}} ~ {{item.end_date || '不限'}} · 邀请码 {{item.invite_code}}</view>
+    </view>
+    <view class="muted">›</view>
+  </view>
+  <view class="muted" wx:if="{{!tasks.length}}">还没有任务，去创建或加入吧</view>
+</view>

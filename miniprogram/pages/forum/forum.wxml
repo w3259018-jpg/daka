@@ -1,0 +1,33 @@
+<view class="card">
+  <view class="row between">
+    <picker mode="selector" range="{{names}}" value="{{idx}}" bindchange="pick" style="flex:1;">
+      <view class="input" style="margin:0;">{{tasks[idx].name || '请选择任务'}} ▾</view>
+    </picker>
+    <view wx:if="{{taskId}}" class="btn btn-line btn-mini" style="margin-left:14rpx;" bindtap="toggleAdd">{{showAdd ? '收起' : '+ 发帖'}}</view>
+  </view>
+  <view wx:if="{{showAdd}}" style="margin-top:14rpx;">
+    <textarea class="input" placeholder="分享点什么…" value="{{content}}" bindinput="onInput" style="min-height:160rpx;" />
+    <button class="btn" bindtap="post">发布</button>
+  </view>
+</view>
+
+<view class="card" wx:if="{{!tasks.length}}">
+  <view class="muted">先去「任务」加入或创建任务</view>
+</view>
+
+<view class="card" wx:for="{{posts}}" wx:key="id" bindtap="open" data-id="{{item.id}}">
+  <view class="row">
+    <view class="avatar"></view>
+    <view style="flex:1;">
+      <view>{{item.nickname}}<text class="tag {{item.source==='manual'?'tag-grey':''}}">{{item.source==='checkin' ? '打卡心得' : '自由分享'}}</text></view>
+      <view class="muted">{{item.created_at}}</view>
+    </view>
+  </view>
+  <view style="margin-top:10rpx; white-space:pre-wrap;">{{item.content}}</view>
+  <view class="row" style="margin-top:14rpx; gap:24rpx;">
+    <view catchtap="like" data-id="{{item.id}}" class="muted">{{item.liked ? '♥' : '♡'}} {{item.likes}}</view>
+    <view class="muted">💬 {{item.comments}}</view>
+  </view>
+</view>
+
+<view wx:if="{{tasks.length && !posts.length}}" class="muted" style="padding:20rpx; text-align:center;">还没有帖子</view>

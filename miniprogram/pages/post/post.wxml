@@ -1,0 +1,40 @@
+<view wx:if="{{post}}">
+  <view class="card">
+    <view class="row">
+      <view class="avatar"></view>
+      <view style="flex:1;">
+        <view>{{post.nickname}}<text class="tag {{post.source==='manual'?'tag-grey':''}}">{{post.source==='checkin'?'打卡心得':'自由分享'}}</text></view>
+      </view>
+    </view>
+    <view style="margin-top:12rpx; white-space:pre-wrap;">{{post.content}}</view>
+    <view class="row" style="margin-top:14rpx; gap:24rpx;">
+      <view bindtap="like" class="muted">{{post.liked ? '♥' : '♡'}} {{post.likes}}</view>
+      <view class="muted">💬 {{post.comments}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">评论</view>
+    <view wx:for="{{tree}}" wx:key="id" wx:for-item="c" style="padding:16rpx 0; border-top:1rpx solid #eee;">
+      <view class="row">
+        <view class="avatar"></view>
+        <view style="flex:1;">
+          <view class="sub">{{c.nickname}}</view>
+          <view>{{c.content}}</view>
+          <view class="muted" bindtap="setReply" data-id="{{c.id}}" data-name="{{c.nickname}}">回复</view>
+        </view>
+      </view>
+      <view wx:for="{{c.replies}}" wx:key="id" wx:for-item="r" style="margin-left:80rpx; padding:10rpx 0;">
+        <view class="sub">{{r.nickname}} <text class="muted">回复</text></view>
+        <view>{{r.content}}</view>
+      </view>
+    </view>
+    <view wx:if="{{!tree.length}}" class="muted" style="padding:14rpx 0;">沙发还空着</view>
+  </view>
+</view>
+
+<view class="card row" style="position:sticky; bottom:0; background:#fff;">
+  <input class="input" style="flex:1; margin:0 10rpx 0 0;" placeholder="{{parentId ? '回复 ' + parentName : '说点什么…'}}" value="{{text}}" bindinput="onInput" />
+  <view wx:if="{{parentId}}" class="muted" bindtap="cancelReply" style="margin-right:10rpx;">取消</view>
+  <view class="btn btn-mini" bindtap="send">发送</view>
+</view>

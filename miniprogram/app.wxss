@@ -1,0 +1,25 @@
+page { background:#f5f7fa; font-size:28rpx; color:#222; }
+.card { background:#fff; border-radius:16rpx; padding:24rpx; margin:16rpx; box-shadow:0 2rpx 12rpx rgba(0,0,0,.04); }
+.row { display:flex; align-items:center; }
+.between { justify-content:space-between; }
+.btn { background:#3aa675; color:#fff; border-radius:12rpx; padding:16rpx 28rpx; font-size:28rpx; line-height:1.4; text-align:center; }
+.btn-line { background:#fff; color:#3aa675; border:1rpx solid #3aa675; }
+.btn-mini { padding:8rpx 18rpx; font-size:24rpx; }
+.muted { color:#888; font-size:24rpx; }
+.title { font-size:32rpx; font-weight:600; }
+.sub { font-size:26rpx; color:#555; }
+.input { background:#f0f2f5; border-radius:10rpx; padding:16rpx; margin:10rpx 0; }
+.avatar { width:64rpx; height:64rpx; border-radius:50%; background:#ddd; margin-right:16rpx; }
+.tag { display:inline-block; padding:4rpx 12rpx; border-radius:8rpx; font-size:22rpx; background:#eef7f1; color:#3aa675; margin-left:8rpx; }
+.tag-grey { background:#eee; color:#888; }
+.divider { height:1rpx; background:#eee; margin:14rpx 0; }
+.pill { display:inline-block; padding:6rpx 18rpx; border-radius:30rpx; background:#eef7f1; color:#3aa675; font-size:24rpx; margin-right:10rpx; }
+
+/* 完成动效：撒星星 */
+.celebrate-mask { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:9999; }
+.celebrate-text { color:#fff; font-size:44rpx; font-weight:700; text-shadow:0 4rpx 16rpx rgba(0,0,0,.4); }
+.star { position:absolute; font-size:40rpx; animation: starFly 1.6s ease-out forwards; }
+@keyframes starFly {
+  0%   { transform: translate(0,0) scale(.4) rotate(0deg);   opacity: 1; }
+  100% { transform: translate(var(--x), var(--y)) scale(1.2) rotate(360deg); opacity: 0; }
+}

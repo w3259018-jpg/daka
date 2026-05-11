@@ -1,0 +1,63 @@
+<view wx:if="{{task}}">
+  <view class="card">
+    <view class="title">{{task.name}}<text class="tag">{{task.is_creator ? '创建者' : task.is_admin ? '管理员' : '成员'}}</text></view>
+    <view class="muted">时间：{{task.start_date || '不限'}} ~ {{task.end_date || '不限'}}</view>
+    <view class="muted" bindtap="copyCode">邀请码：{{task.invite_code}}（点击复制）</view>
+    <view class="row" style="margin-top:18rpx; flex-wrap:wrap; gap:12rpx;">
+      <button class="btn btn-line btn-mini" open-type="share">分享好友</button>
+      <view class="btn btn-line btn-mini" bindtap="goRank">排行榜</view>
+      <view class="btn btn-line btn-mini" bindtap="goForum">论坛</view>
+      <view class="btn btn-line btn-mini" bindtap="goProfile">我的记录</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row between">
+      <view class="title">打卡内容（{{task.items.length}}）</view>
+      <view wx:if="{{task.is_admin}}" class="btn btn-line btn-mini" bindtap="toggleAdd">{{showAdd ? '收起' : '+ 发布'}}</view>
+    </view>
+
+    <view wx:if="{{showAdd}}" style="margin-top:14rpx;">
+      <input class="input" placeholder="打卡标题" value="{{title}}" bindinput="onInput" data-k="title" />
+      <picker range="{{mediaTypes}}" value="{{mtIdx}}" bindchange="pickMt">
+        <view class="input">类型：{{mediaTypes[mtIdx] === 'audio' ? '音频' : '视频'}} ▾</view>
+      </picker>
+      <view class="row" style="gap:12rpx;">
+        <view class="btn btn-line btn-mini" bindtap="chooseMedia">选择文件</view>
+        <view class="muted" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{mediaUrl || '未选择'}}</view>
+      </view>
+      <button class="btn" style="margin-top:14rpx;" bindtap="publish">发布</button>
+    </view>
+
+    <view wx:for="{{task.items}}" wx:key="id" class="row between" style="padding:18rpx 0; border-top:1rpx solid #eee;" bindtap="openItem" data-id="{{item.id}}">
+      <view style="flex:1;">
+        <view>{{item.title}} <text class="tag {{item.media_type==='audio'?'tag-grey':''}}">{{item.media_type==='audio'?'音频':'视频'}}</text></view>
+        <view class="muted">{{item.done ? '已完成 ✓' : '未打卡'}}</view>
+      </view>
+      <view class="muted">›</view>
+    </view>
+    <view class="muted" wx:if="{{!task.items.length}}">暂无打卡内容{{task.is_admin ? '，点击 + 发布' : '，等待管理员发布'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title">成员（{{task.members.length}}）</view>
+    <view wx:for="{{task.members}}" wx:key="user_id" class="row" style="padding:14rpx 0; border-top:1rpx solid #eee;">
+      <view class="avatar"></view>
+      <view style="flex:1;">
+        <view>{{item.real_name || item.nickname}}<text class="tag {{item.role==='member'?'tag-grey':''}}">{{item.role==='creator'?'创建者':item.role==='admin'?'管理员':'成员'}}</text></view>
+        <view class="muted">{{item.gender || '-'}} · {{item.age || '-'}}岁</view>
+      </view>
+      <block wx:if="{{task.is_creator && item.role!=='creator'}}">
+        <view wx:if="{{item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx;" catchtap="setRole" data-uid="{{item.user_id}}" data-role="admin">设为管理员</view>
+        <view wx:if="{{item.role==='admin'}}" class="btn btn-line btn-mini" style="margin-left:8rpx;" catchtap="setRole" data-uid="{{item.user_id}}" data-role="member">撤销管理员</view>
+        <view wx:if="{{item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx; color:#d9534f; border-color:#d9534f;" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
+      </block>
+      <view wx:elif="{{task.is_admin && !task.is_creator && item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx; color:#d9534f; border-color:#d9534f;" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{task.is_creator}}">
+    <view class="btn btn-line" style="color:#d9534f; border-color:#d9534f;" bindtap="dissolve">解散任务</view>
+  </view>
+</view>
+<view class="muted" wx:else style="padding:40rpx; text-align:center;">加载中…</view>

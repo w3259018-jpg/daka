@@ -1,0 +1,42 @@
+<view class="card row">
+  <open-data type="userAvatarUrl" class="avatar avatar-lg"></open-data>
+  <view style="flex:1; margin-left:16rpx;">
+    <open-data type="userNickName" class="nick-input"></open-data>
+    <view class="muted">已加入 {{tasks.length}} 个任务</view>
+  </view>
+</view>
+
+<view class="card" wx:if="{{tasks.length}}">
+  <picker mode="selector" range="{{names}}" value="{{idx}}" bindchange="pick">
+    <view class="input">{{tasks[idx].name || '请选择任务'}} ▾</view>
+  </picker>
+  <view class="row" style="gap:12rpx; margin-top:10rpx;">
+    <picker mode="date" value="{{startDate}}" bindchange="pickStart" style="flex:1;">
+      <view class="input" style="margin:0;">起：{{startDate || '不限'}}</view>
+    </picker>
+    <picker mode="date" value="{{endDate}}" bindchange="pickEnd" style="flex:1;">
+      <view class="input" style="margin:0;">止：{{endDate || '不限'}}</view>
+    </picker>
+    <view class="muted" bindtap="clearDate">清除</view>
+  </view>
+  <view class="row between" style="margin-top:14rpx;">
+    <view class="muted">勾选记录后导出</view>
+    <view class="btn btn-mini" bindtap="exportNotes">导出选中</view>
+  </view>
+</view>
+
+<view class="card" wx:if="{{tasks.length}}">
+  <view class="title">我的打卡记录（{{filtered.length}}）</view>
+  <view wx:for="{{filtered}}" wx:key="id" class="row" style="padding:16rpx 0; border-top:1rpx solid #eee;">
+    <checkbox checked="{{selected[item.id]}}" bindtap="toggle" data-id="{{item.id}}" style="margin-right:10rpx;" />
+    <view style="flex:1;" bindtap="goPost" data-id="{{item.post_id}}">
+      <view>{{item.item_title}}</view>
+      <view class="muted" style="margin:6rpx 0;">{{item.date}}</view>
+      <view class="sub" style="white-space:pre-wrap;">{{item.note}}</view>
+      <view class="muted" style="margin-top:6rpx;">♥ {{item.likes}} · 💬 {{item.comments}}</view>
+    </view>
+  </view>
+  <view wx:if="{{!filtered.length}}" class="muted">暂无记录</view>
+</view>
+
+<view class="card" wx:if="{{!tasks.length}}"><view class="muted">先去「任务」加入或创建任务</view></view>

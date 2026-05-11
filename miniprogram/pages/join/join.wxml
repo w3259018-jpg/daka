@@ -1,0 +1,10 @@
+<view class="card">
+  <view class="title">加入「{{taskName}}」</view>
+  <view class="muted">填写入组信息后即可加入任务</view>
+  <input class="input" placeholder="姓名" value="{{realName}}" bindinput="onInput" data-k="realName" />
+  <picker range="{{genders}}" value="{{gIdx}}" bindchange="pickG">
+    <view class="input">性别：{{genders[gIdx]}} ▾</view>
+  </picker>
+  <input class="input" type="number" placeholder="年龄" value="{{age}}" bindinput="onInput" data-k="age" />
+  <button class="btn" bindtap="submit">确认加入</button>
+</view>
