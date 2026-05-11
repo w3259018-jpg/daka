@@ -7,18 +7,21 @@
     "pages/task/task",
     "pages/item/item",
     "pages/post/post",
-    "pages/join/join"
+    "pages/join/join",
+    "pages/privacy/privacy",
+    "pages/agreement/agreement"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "#F0FDFA",
     "navigationBarTitleText": "打卡监督",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#888",
-    "selectedColor": "#3aa675",
-    "backgroundColor": "#ffffff",
+    "color": "#94A3B8",
+    "selectedColor": "#0D9488",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
     "list": [
       { "pagePath": "pages/tasks/tasks",   "text": "任务" },
       { "pagePath": "pages/forum/forum",   "text": "论坛" },

@@ -28,6 +28,120 @@ const auth = (req, res, next) => {
   catch { res.status(401).json({ err: 'unauthorized' }); }
 };
 
+// ---------- 微信内容安全检查 ----------
+// 获取 access_token（带缓存，2小时刷新一次）
+let accessToken = { token: '', expiresAt: 0 };
+const getAccessToken = async () => {
+  const now = Date.now();
+  if (accessToken.token && accessToken.expiresAt > now + 60000) {
+    return accessToken.token;
+  }
+  try {
+    const res = await fetch(
+      `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}`
+    );
+    const data = await res.json();
+    if (data.access_token) {
+      accessToken.token = data.access_token;
+      accessToken.expiresAt = now + (data.expires_in || 7200) * 1000;
+      return data.access_token;
+    }
+  } catch (e) {
+    console.error('[微信] 获取access_token失败:', e.message);
+  }
+  return null;
+};
+
+// 文本内容安全检测（msgSecCheck）
+const checkText = async (text) => {
+  // 未配置微信密钥时跳过检查（开发模式）
+  if (!process.env.WX_APPID || !process.env.WX_SECRET) {
+    console.log('[内容安全] 未配置WX_APPID，跳过文本检查');
+    return { safe: true };
+  }
+  try {
+    const token = await getAccessToken();
+    if (!token) return { safe: true, reason: '获取token失败，跳过检查' };
+    
+    const res = await fetch(
+      `https://api.weixin.qq.com/wxa/msg_sec_check?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text })
+      }
+    );
+    const data = await res.json();
+    // errcode: 0 = 安全, 87014 = 含有违法违规内容
+    if (data.errcode === 87014) {
+      return { safe: false, reason: '内容可能含有违规信息，请修改后重试' };
+    }
+    return { safe: true };
+  } catch (e) {
+    console.error('[内容安全] 文本检查失败:', e.message);
+    return { safe: true, reason: '检查服务异常，跳过' };
+  }
+};
+
+// 图片内容安全检测（imgSecCheck）
+const checkImage = async (buffer, mimetype) => {
+  if (!process.env.WX_APPID || !process.env.WX_SECRET) {
+    console.log('[内容安全] 未配置WX_APPID，跳过图片检查');
+    return { safe: true };
+  }
+  try {
+    const token = await getAccessToken();
+    if (!token) return { safe: true };
+    
+    const res = await fetch(
+      `https://api.weixin.qq.com/wxa/img_sec_check?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: buffer
+      }
+    );
+    const data = await res.json();
+    if (data.errcode === 87014) {
+      return { safe: false, reason: '图片可能含有违规信息，请更换图片' };
+    }
+    return { safe: true };
+  } catch (e) {
+    console.error('[内容安全] 图片检查失败:', e.message);
+    return { safe: true };
+  }
+};
+
+// 音视频内容安全检测（mediaCheckAsync，异步检测）
+const checkMediaAsync = async (mediaUrl, mediaType) => {
+  // mediaType: 1=音频, 2=视频
+  if (!process.env.WX_APPID || !process.env.WX_SECRET) {
+    console.log('[内容安全] 未配置WX_APPID，跳过媒体检查');
+    return { safe: true };
+  }
+  try {
+    const token = await getAccessToken();
+    if (!token) return { safe: true };
+    
+    const res = await fetch(
+      `https://api.weixin.qq.com/wxa/media_check_async?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_url: mediaUrl, media_type: mediaType })
+      }
+    );
+    const data = await res.json();
+    if (data.errcode === 0) {
+      console.log(`[内容安全] 媒体异步检测已提交，trace_id: ${data.trace_id}`);
+    }
+    return { safe: true, trace_id: data.trace_id };
+  } catch (e) {
+    console.error('[内容安全] 媒体检查失败:', e.message);
+    return { safe: true };
+  }
+};
+
 const isCreator = (tid, uid) => { const t = find('tasks', t => t.id === tid); return !!t && t.admin_id === uid; };
 const isAdmin = (tid, uid) => {
   if (isCreator(tid, uid)) return true;
@@ -95,6 +209,14 @@ app.put('/api/me/profile', auth, (req, res) => {
 // ---------- 上传 ----------
 app.post('/api/upload', auth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ err: 'no file' });
+  
+  // 图片内容安全检查
+  const mime = req.file.mimetype || '';
+  if (mime.startsWith('image/')) {
+    const check = await checkImage(req.file.buffer, mime);
+    if (!check.safe) return res.status(400).json({ err: check.reason });
+  }
+  
   try {
     const url = await storage.put(req.file.buffer, req.file.originalname, req.file.mimetype);
     res.json({ url });
@@ -195,12 +317,21 @@ app.post('/api/tasks/join', auth, (req, res) => {
 });
 
 // ---------- 打卡内容（管理员发布） ----------
-app.post('/api/tasks/:id/items', auth, (req, res) => {
+app.post('/api/tasks/:id/items', auth, async (req, res) => {
   const tid = +req.params.id;
   if (!isAdmin(tid, req.user.id)) return res.status(403).json({ err: 'admin only' });
   const { title, media_type, media_url } = req.body;
   if (!title || !media_url || !['audio', 'video'].includes(media_type))
     return res.status(400).json({ err: 'fields required' });
+  
+  // 内容安全检查：标题文本 + 音视频异步检测
+  const titleCheck = await checkText(title);
+  if (!titleCheck.safe) return res.status(400).json({ err: titleCheck.reason });
+  
+  // 音视频异步检测（media_type: 1=音频, 2=视频）
+  const mediaCheckType = media_type === 'audio' ? 1 : 2;
+  checkMediaAsync(media_url, mediaCheckType); // 异步执行，不阻塞返回
+  
   res.json(insert('checkin_items', { task_id: tid, title, media_type, media_url }));
 });
 
@@ -223,13 +354,18 @@ app.post('/api/items/:id/watched', auth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/items/:id/submit', auth, (req, res) => {
+app.post('/api/items/:id/submit', auth, async (req, res) => {
   const id = +req.params.id;
   const { note } = req.body;
   const item = find('checkin_items', i => i.id === id);
   if (!item) return res.status(404).json({ err: 'not found' });
   if (!guardMember(item.task_id, req.user.id, res)) return;
   if (!note) return res.status(400).json({ err: 'note required' });
+  
+  // 内容安全检查
+  const check = await checkText(note);
+  if (!check.safe) return res.status(400).json({ err: check.reason });
+  
   const rec = find('checkin_records', r => r.item_id === id && r.user_id === req.user.id);
   if (!rec || !rec.watched_at) return res.status(400).json({ err: 'must watch first' });
   if (rec.submitted_at) return res.status(409).json({ err: 'already submitted' });
@@ -269,11 +405,16 @@ app.get('/api/tasks/:id/posts', auth, (req, res) => {
   res.json(list);
 });
 
-app.post('/api/tasks/:id/posts', auth, (req, res) => {
+app.post('/api/tasks/:id/posts', auth, async (req, res) => {
   const tid = +req.params.id;
   if (!guardMember(tid, req.user.id, res)) return;
   const { content } = req.body;
   if (!content) return res.status(400).json({ err: 'content required' });
+  
+  // 内容安全检查
+  const check = await checkText(content);
+  if (!check.safe) return res.status(400).json({ err: check.reason });
+  
   res.json(insert('posts', { task_id: tid, user_id: req.user.id, content, source: 'manual', checkin_record_id: 0 }));
 });
 
@@ -288,13 +429,18 @@ app.get('/api/posts/:id', auth, (req, res) => {
   res.json({ ...decoratePost(p, req.user.id), commentList: comments });
 });
 
-app.post('/api/posts/:id/comment', auth, (req, res) => {
+app.post('/api/posts/:id/comment', auth, async (req, res) => {
   const id = +req.params.id;
   const { content, parent_id = 0 } = req.body;
   const p = find('posts', p => p.id === id);
   if (!p) return res.status(404).json({ err: 'not found' });
   if (!guardMember(p.task_id, req.user.id, res)) return;
   if (!content) return res.status(400).json({ err: 'content required' });
+  
+  // 内容安全检查
+  const check = await checkText(content);
+  if (!check.safe) return res.status(400).json({ err: check.reason });
+  
   res.json(insert('post_comments', { post_id: id, user_id: req.user.id, parent_id: +parent_id || 0, content }));
 });
 

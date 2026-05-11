@@ -9,8 +9,9 @@
     "smoke": "node smoke-test.js"
   },
   "dependencies": {
+    "axios": "^1.16.0",
     "cors": "^2.8.5",
-    "cos-nodejs-sdk-v5": "^2.11.19",
+    "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",

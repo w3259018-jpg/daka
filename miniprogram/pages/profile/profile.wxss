@@ -1,4 +1,4 @@
 .avatar-btn { padding:0; margin:0; line-height:1; background:transparent; border:none; }
 .avatar-btn::after { border:none; }
-.avatar-lg { width:96rpx; height:96rpx; border-radius:50%; }
-.nick-input { font-size:32rpx; font-weight:600; padding:6rpx 0; min-height:48rpx; }
+.avatar-lg { width:108rpx; height:108rpx; border-radius:50%; background:#CCFBF1; }
+.nick-input { font-size:36rpx; font-weight:600; color:#1A1A2E; padding:8rpx 0; min-height:48rpx; }

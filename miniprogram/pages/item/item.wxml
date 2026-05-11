@@ -1,29 +1,29 @@
 <view wx:if="{{item}}">
   <view class="card">
     <view class="title">{{item.title}}</view>
-    <view class="muted">{{item.media_type === 'audio' ? '音频内容' : '视频内容'}} · {{watched ? '✓ 已确认观看' : '请点击播放'}}</view>
+    <view class="muted" style="margin-top:8rpx;">{{item.media_type === 'audio' ? '音频内容' : '视频内容'}} · {{watched ? '✓ 已确认观看' : '请点击播放'}}</view>
 
     <video wx:if="{{item.media_type==='video'}}" src="{{mediaSrc}}" controls
-           bindplay="onVideoPlay" style="width:100%; margin-top:14rpx; border-radius:12rpx;" />
+           bindplay="onVideoPlay" style="width:100%; margin-top:20rpx; border-radius:16rpx;" />
 
-    <view wx:else style="margin-top:14rpx;">
-      <view class="row" style="gap:12rpx;">
+    <view wx:else style="margin-top:20rpx;">
+      <view class="row" style="gap:16rpx;">
         <view class="btn btn-line" bindtap="playAudio">▶ 播放</view>
         <view class="btn btn-line" bindtap="pauseAudio">⏸ 暂停</view>
       </view>
-      <view class="muted" style="margin-top:10rpx;">音频会从服务器加载，请保持网络畅通</view>
+      <view class="muted" style="margin-top:12rpx;">音频会从服务器加载，请保持网络畅通</view>
     </view>
   </view>
 
   <view class="card">
     <view class="title">我的心得</view>
-    <textarea class="input" placeholder="听完/看完后，写下你的感受…" value="{{note}}" bindinput="onNote" disabled="{{submitted}}" style="min-height:200rpx;" />
-    <button class="btn" wx:if="{{!submitted}}" bindtap="submit">提交打卡</button>
-    <view class="muted" wx:else>已提交：{{note}}</view>
+    <textarea class="input" placeholder="听完/看完后，写下你的感受…" value="{{note}}" bindinput="onNote" disabled="{{submitted}}" style="min-height:220rpx; margin-top:16rpx;" />
+    <button class="btn" wx:if="{{!submitted}}" style="margin-top:20rpx;" bindtap="submit">提交打卡</button>
+    <view class="muted" wx:else style="margin-top:12rpx;">已提交：{{note}}</view>
   </view>
 </view>
 
 <view wx:if="{{celebrating}}" class="celebrate-mask">
   <view wx:for="{{stars}}" wx:key="id" class="star" style="left:{{item.l}}; top:{{item.t}}; --x:{{item.x}}; --y:{{item.y}}; color:{{item.c}};">{{item.ch}}</view>
-  <view class="celebrate-text">恭喜完成打卡任务！</view>
+  <view class="celebrate-text">恭喜完成打卡！</view>
 </view>

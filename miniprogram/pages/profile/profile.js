@@ -80,5 +80,8 @@ Page({
     });
   },
 
-  goPost(e) { const id = e.currentTarget.dataset.id; if (id) wx.navigateTo({ url: '/pages/post/post?id=' + id }); }
+  goPost(e) { const id = e.currentTarget.dataset.id; if (id) wx.navigateTo({ url: '/pages/post/post?id=' + id }); },
+
+  goPrivacy() { wx.navigateTo({ url: '/pages/privacy/privacy' }); },
+  goAgreement() { wx.navigateTo({ url: '/pages/agreement/agreement' }); }
 });

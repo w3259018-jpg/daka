@@ -9,6 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const axios = require('axios');
+const cryptoJs = require('crypto');
 
 const DRIVER = (process.env.STORAGE_DRIVER || 'disk').toLowerCase();
 const UP_DIR = path.join(__dirname, 'uploads');
@@ -31,32 +33,67 @@ const makeKey = (originalName, mime) => {
   return `${ts}_${rand}${extOf(originalName, mime)}`;
 };
 
+// COS 签名算法（V5 版本）
+const getCosAuth = (method, key, secretId, secretKey, bucket, region) => {
+  const host = `${bucket}.cos.${region}.myqcloud.com`;
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + 3600; // 1小时有效期
+  const keyTime = `${now};${exp}`;
+  
+  // SignKey
+  const signKey = cryptoJs.createHmac('sha1', secretKey).update(keyTime).digest('hex');
+  
+  // HttpString
+  const httpString = `${method.toLowerCase()}\n/${key}\n\nhost=${host}\n`;
+  const sha1HttpString = cryptoJs.createHash('sha1').update(httpString).digest('hex');
+  
+  // StringToSign
+  const stringToSign = `sha1\n${keyTime}\n${sha1HttpString}\n`;
+  
+  // Signature
+  const signature = cryptoJs.createHmac('sha1', signKey).update(stringToSign).digest('hex');
+  
+  // Authorization
+  const auth = `q-sign-algorithm=sha1&q-ak=${secretId}&q-sign-time=${keyTime}&q-key-time=${keyTime}&q-header-list=host&q-url-param-list=&q-signature=${signature}`;
+  
+  return auth;
+};
+
 let driver;
 if (DRIVER === 'cos') {
-  const COS = require('cos-nodejs-sdk-v5');
-  const cos = new COS({
-    SecretId:  process.env.COS_SECRET_ID,
-    SecretKey: process.env.COS_SECRET_KEY,
-  });
-  const Bucket = process.env.COS_BUCKET;
-  const Region = process.env.COS_REGION;
-  const publicHost = process.env.COS_PUBLIC_HOST
-    || `https://${Bucket}.cos.${Region}.myqcloud.com`;
+  const secretId = process.env.COS_SECRET_ID;
+  const secretKey = process.env.COS_SECRET_KEY;
+  const bucket = process.env.COS_BUCKET;
+  const region = process.env.COS_REGION;
+  const publicHost = process.env.COS_PUBLIC_HOST || `https://${bucket}.cos.${region}.myqcloud.com`;
 
-  if (!process.env.COS_SECRET_ID || !process.env.COS_SECRET_KEY || !Bucket || !Region) {
+  if (!secretId || !secretKey || !bucket || !region) {
     console.error('[storage] STORAGE_DRIVER=cos 但缺少必要的 COS_* 环境变量');
   }
 
-  const put = (buffer, originalName, mime, fixedKey) => new Promise((resolve, reject) => {
+  const put = async (buffer, originalName, mime, fixedKey) => {
     const Key = fixedKey || makeKey(originalName, mime);
-    cos.putObject({
-      Bucket, Region, Key, Body: buffer,
-      ContentType: mime || 'application/octet-stream',
-    }, (err) => {
-      if (err) return reject(err);
-      resolve(`${publicHost}/${Key}`);
-    });
-  });
+    const url = `https://${bucket}.cos.${region}.myqcloud.com/${Key}`;
+    
+    try {
+      const auth = getCosAuth('PUT', Key, secretId, secretKey, bucket, region);
+      
+      await axios.put(url, buffer, {
+        headers: {
+          'Authorization': auth,
+          'Content-Type': mime || 'application/octet-stream',
+          'Host': `${bucket}.cos.${region}.myqcloud.com`
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      });
+      
+      return `${publicHost}/${Key}`;
+    } catch (err) {
+      console.error('[storage] COS上传失败:', err.response?.data || err.message);
+      throw new Error('COS上传失败');
+    }
+  };
 
   driver = { mode: 'cos', put };
 } else {
