@@ -6,6 +6,7 @@
     "start": "node index.js",
     "dev": "node index.js",
     "migrate": "node migrate-to-mysql.js",
+    "archive-social": "node archive-social-data.js",
     "smoke": "node smoke-test.js"
   },
   "dependencies": {

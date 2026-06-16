@@ -8,7 +8,7 @@ Page({
     const code = (q.code || '').toUpperCase();
     let taskId = +q.id || 0, taskName = decodeURIComponent(q.name || '');
     if (code && !taskId) {
-      try { const t = await request('/api/tasks/by-code/' + code); taskId = t.id; taskName = t.name; }
+      try { const t = await request('/api/tasks/by-code/' + encodeURIComponent(code)); taskId = t.id; taskName = t.name; }
       catch { return toast('邀请码无效'); }
     }
     this.setData({ code, taskId, taskName });

@@ -1,1 +1,140 @@
+.today-page .page-header {
+  padding-top: 24rpx;
+}
 
+.today-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.today-hero::after {
+  content: "";
+  position: absolute;
+  right: -54rpx;
+  top: -54rpx;
+  width: 190rpx;
+  height: 190rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .18);
+}
+
+.hero-num {
+  margin: 8rpx 0;
+  color: #fff;
+  font-size: 88rpx;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.hero-btn {
+  display: inline-block;
+  margin-top: 28rpx;
+  background: #FFFDF9;
+  color: #E98243;
+  box-shadow: none;
+}
+
+.task-focus {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 28rpx;
+  background: #FBEFE4;
+}
+
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-name {
+  color: #30261E;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.progress-track {
+  height: 12rpx;
+  margin-top: 16rpx;
+  border-radius: 999rpx;
+  background: #F0E7DC;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  min-width: 10rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #F2B36D 0%, #E98243 100%);
+}
+
+.week-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24rpx;
+}
+
+.week-dot {
+  width: 76rpx;
+  height: 92rpx;
+  border-radius: 26rpx;
+  background: #F7F1EA;
+  color: #988878;
+  font-size: 22rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+}
+
+.week-dot.done {
+  background: #FBEFE4;
+  color: #E98243;
+}
+
+.week-dot.today {
+  background: #E98243;
+  color: #fff;
+  box-shadow: 0 10rpx 24rpx rgba(233, 130, 67, .22);
+}
+
+.task-list-card {
+  border-bottom: 1rpx solid #F0E7DC;
+}
+
+.task-list-card:last-child {
+  border-bottom: 0;
+}
+
+.managed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #F0E7DC;
+}
+
+.managed-row:last-child {
+  border-bottom: 0;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.join-box {
+  margin-top: 22rpx;
+}
+
+.empty-text {
+  margin-top: 14rpx;
+  color: #988878;
+  font-size: 26rpx;
+  line-height: 1.7;
+}

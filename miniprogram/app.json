@@ -1,34 +1,39 @@
 {
   "pages": [
     "pages/tasks/tasks",
-    "pages/forum/forum",
-    "pages/rank/rank",
+    "pages/taskboard/taskboard",
+    "pages/records/records",
     "pages/profile/profile",
+    "pages/create/create",
     "pages/task/task",
     "pages/item/item",
-    "pages/post/post",
     "pages/join/join",
     "pages/privacy/privacy",
     "pages/agreement/agreement"
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#F0FDFA",
-    "navigationBarTitleText": "打卡监督",
+    "navigationBarBackgroundColor": "#FCFAF6",
+    "navigationBarTitleText": "为一自在",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#94A3B8",
-    "selectedColor": "#0D9488",
+    "custom": true,
+    "color": "#988878",
+    "selectedColor": "#E98243",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/tasks/tasks",   "text": "任务" },
-      { "pagePath": "pages/forum/forum",   "text": "论坛" },
-      { "pagePath": "pages/rank/rank",     "text": "排行" },
+      { "pagePath": "pages/tasks/tasks",   "text": "今天" },
+      { "pagePath": "pages/taskboard/taskboard", "text": "计划" },
+      { "pagePath": "pages/records/records", "text": "记录" },
       { "pagePath": "pages/profile/profile","text": "我的" }
     ]
   },
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/privacy-popup"
+  },
+  "__usePrivacyCheck__": true
 }

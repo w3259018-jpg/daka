@@ -1,113 +1,250 @@
-/* ========== 蓝绿色主题 · 灵感：阿嚒手作 × 喜茶 ========== */
-/* 主色：Teal 系列  |  强调：Cyan 系列  |  风格：大留白 · 圆角 · 清爽 */
-
 page {
-  background: #F0FDFA;
+  background: linear-gradient(180deg, #FCFAF6 0%, #FFFDF9 48%, #FCFAF6 100%);
   font-size: 28rpx;
-  color: #1A1A2E;
+  color: #30261E;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-bottom: calc(128rpx + env(safe-area-inset-bottom));
 }
 
-/* ---------- 卡片 ---------- */
+.page {
+  min-height: 100vh;
+  padding: 24rpx 24rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.page-header {
+  padding: 16rpx 4rpx 22rpx;
+}
+
+.hello {
+  font-size: 40rpx;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #30261E;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #30261E;
+}
+
 .card {
-  background: #FFFFFF;
-  border-radius: 24rpx;
-  padding: 32rpx;
-  margin: 20rpx 24rpx;
-  box-shadow: 0 4rpx 24rpx rgba(13, 148, 136, .06);
+  background: #FFFDF9;
+  border-radius: 32rpx;
+  padding: 28rpx;
+  margin: 20rpx 0;
+  box-shadow: 0 16rpx 42rpx rgba(233, 130, 67, .08);
+  border: 1rpx solid #F0E7DC;
+  box-sizing: border-box;
 }
 
-/* ---------- 布局工具 ---------- */
+.hero-card {
+  background: linear-gradient(135deg, #F2B36D 0%, #E98243 100%);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 22rpx 46rpx rgba(233, 130, 67, .24);
+}
+
+.reply-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: #FFFDF9;
+  padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -6rpx 20rpx rgba(233, 130, 67, .08);
+  z-index: 50;
+}
+
 .row { display: flex; align-items: center; }
 .between { justify-content: space-between; }
+.center { display: flex; align-items: center; justify-content: center; }
+.wrap { flex-wrap: wrap; }
+.gap-sm { gap: 12rpx; }
+.gap { gap: 18rpx; }
 
-/* ---------- 按钮 ---------- */
 .btn {
-  background: #0D9488;
+  background: linear-gradient(135deg, #F2B36D 0%, #E98243 100%);
   color: #fff;
-  border-radius: 16rpx;
+  border-radius: 999rpx;
   padding: 18rpx 32rpx;
   font-size: 28rpx;
   line-height: 1.4;
   text-align: center;
   letter-spacing: 1rpx;
+  box-shadow: 0 12rpx 26rpx rgba(233, 130, 67, .24);
   transition: opacity .2s;
 }
 .btn:active { opacity: .85; }
 .btn-line {
-  background: transparent;
-  color: #0D9488;
-  border: 2rpx solid #0D9488;
+  background: #FBEFE4;
+  color: #E98243;
+  border: 2rpx solid #F0E7DC;
+  box-shadow: none;
 }
 .btn-mini {
   padding: 10rpx 20rpx;
   font-size: 24rpx;
-  border-radius: 20rpx;
+}
+.btn-danger {
+  color: #EF4444;
+  border-color: #FECACA;
+  background: #FFF1F2;
 }
 
-/* ---------- 文字 ---------- */
-.muted { color: #94A3B8; font-size: 24rpx; }
-.title { font-size: 34rpx; font-weight: 600; color: #1A1A2E; letter-spacing: 1rpx; }
-.sub   { font-size: 26rpx; color: #64748B; }
+.muted { color: #988878; font-size: 24rpx; }
+.title { font-size: 34rpx; font-weight: 700; color: #30261E; letter-spacing: 1rpx; }
+.sub   { font-size: 26rpx; color: #988878; }
+.white-muted { color: rgba(255, 255, 255, .76); font-size: 24rpx; }
 
-/* ---------- 输入框 ---------- */
 .input {
-  background: #E2F5F0;
-  border-radius: 14rpx;
-  padding: 18rpx 20rpx;
+  background: #FFFDF9;
+  border: 1rpx solid #F0E7DC;
+  border-radius: 22rpx;
+  padding: 20rpx 24rpx;
   margin: 12rpx 0;
-  color: #1A1A2E;
+  color: #30261E;
   font-size: 28rpx;
+  line-height: 1.6;
+  min-height: 88rpx;
+  box-sizing: border-box;
 }
 
-/* ---------- 头像 ---------- */
 .avatar {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: #CCFBF1;
+  background: linear-gradient(135deg, #FBEFE4, #F2B36D);
   margin-right: 16rpx;
   overflow: hidden;
 }
 
-/* ---------- 标签 ---------- */
+.avatar-sm {
+  width: 52rpx;
+  height: 52rpx;
+  margin-right: -12rpx;
+  border: 4rpx solid #fff;
+}
+
+.icon-badge {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 22rpx;
+  background: #FBEFE4;
+  color: #E98243;
+  font-size: 36rpx;
+  font-weight: 800;
+  margin-right: 18rpx;
+}
+
 .tag {
   display: inline-block;
-  padding: 4rpx 14rpx;
-  border-radius: 10rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
   font-size: 22rpx;
-  background: #CCFBF1;
-  color: #0D9488;
+  background: #FBEFE4;
+  color: #E98243;
   margin-left: 8rpx;
 }
 .tag-grey {
-  background: #E0F2FE;
-  color: #0E7490;
+  background: #F7F1EA;
+  color: #988878;
 }
 
-/* ---------- 分隔线 ---------- */
 .divider {
   height: 1rpx;
-  background: #E2F5F0;
+  background: #F0E7DC;
   margin: 18rpx 0;
 }
 
-/* ---------- 药丸标签 ---------- */
 .pill {
   display: inline-block;
   padding: 8rpx 20rpx;
-  border-radius: 30rpx;
-  background: #CCFBF1;
-  color: #0D9488;
+  border-radius: 999rpx;
+  background: #FBEFE4;
+  color: #E98243;
   font-size: 24rpx;
   margin-right: 10rpx;
 }
 
-/* ---------- 完成动效：撒星星 ---------- */
+.stat-grid {
+  display: flex;
+  gap: 16rpx;
+}
+
+.stat-item {
+  flex: 1;
+  background: #FBEFE4;
+  border-radius: 24rpx;
+  padding: 20rpx 8rpx;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 34rpx;
+  color: #30261E;
+  font-weight: 800;
+}
+
+.task-card {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 0;
+}
+
+.progress-ring {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background: conic-gradient(#E98243 0deg, #E98243 var(--progress, 260deg), #FBEFE4 var(--progress, 260deg), #FBEFE4 360deg);
+  position: relative;
+}
+
+.progress-ring::after {
+  content: "";
+  position: absolute;
+  inset: 14rpx;
+  border-radius: 50%;
+  background: #FFFDF9;
+}
+
+.progress-check {
+  position: relative;
+  z-index: 1;
+  color: #E98243;
+  font-size: 46rpx;
+  font-weight: 900;
+}
+
+.calendar-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 18rpx;
+}
+
+.calendar-day {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 50%;
+  font-size: 22rpx;
+  color: #988878;
+  margin: 7rpx 14rpx 7rpx 0;
+}
+
+.calendar-day.done {
+  background: #FBEFE4;
+  color: #E98243;
+}
+
+.calendar-day.today {
+  background: #E98243;
+  color: #fff;
+  box-shadow: 0 10rpx 20rpx rgba(233, 130, 67, .24);
+}
+
 .celebrate-mask {
   position: fixed;
   inset: 0;
-  background: rgba(13, 148, 136, .25);
+  background: rgba(233, 130, 67, .22);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,7 +254,7 @@ page {
   color: #fff;
   font-size: 48rpx;
   font-weight: 700;
-  text-shadow: 0 4rpx 20rpx rgba(13, 148, 136, .5);
+  text-shadow: 0 4rpx 20rpx rgba(233, 130, 67, .5);
 }
 .star {
   position: absolute;

@@ -7,8 +7,7 @@
 //   3. id 由内存 seq 自增，启动时取 MAX(id) 重建，避免重启后冲突。
 const mysql = require('mysql2/promise');
 
-const TABLES = ['users', 'tasks', 'task_members', 'checkin_items', 'checkin_records',
-                'posts', 'post_comments', 'post_likes'];
+const TABLES = ['users', 'tasks', 'task_members', 'checkin_items', 'checkin_records'];
 
 const SCHEMA = {
   users: `CREATE TABLE IF NOT EXISTS users (
@@ -68,38 +67,6 @@ const SCHEMA = {
     KEY idx_item (item_id),
     KEY idx_user (user_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  posts: `CREATE TABLE IF NOT EXISTS posts (
-    id BIGINT PRIMARY KEY,
-    task_id BIGINT NOT NULL DEFAULT 0,
-    user_id BIGINT NOT NULL DEFAULT 0,
-    content TEXT,
-    source VARCHAR(16) NOT NULL DEFAULT 'manual',
-    checkin_record_id BIGINT NOT NULL DEFAULT 0,
-    created_at BIGINT NOT NULL DEFAULT 0,
-    KEY idx_task (task_id),
-    KEY idx_user (user_id),
-    KEY idx_record (checkin_record_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  post_comments: `CREATE TABLE IF NOT EXISTS post_comments (
-    id BIGINT PRIMARY KEY,
-    post_id BIGINT NOT NULL DEFAULT 0,
-    user_id BIGINT NOT NULL DEFAULT 0,
-    parent_id BIGINT NOT NULL DEFAULT 0,
-    content TEXT,
-    created_at BIGINT NOT NULL DEFAULT 0,
-    KEY idx_post (post_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  post_likes: `CREATE TABLE IF NOT EXISTS post_likes (
-    id BIGINT PRIMARY KEY,
-    post_id BIGINT NOT NULL DEFAULT 0,
-    user_id BIGINT NOT NULL DEFAULT 0,
-    created_at BIGINT NOT NULL DEFAULT 0,
-    KEY idx_post (post_id),
-    KEY idx_user (user_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 };
 
 const COLUMNS = {
@@ -108,9 +75,6 @@ const COLUMNS = {
   task_members: ['id', 'task_id', 'user_id', 'real_name', 'gender', 'age', 'role', 'created_at'],
   checkin_items: ['id', 'task_id', 'title', 'media_type', 'media_url', 'created_at'],
   checkin_records: ['id', 'item_id', 'user_id', 'note', 'watched_at', 'submitted_at', 'created_at'],
-  posts: ['id', 'task_id', 'user_id', 'content', 'source', 'checkin_record_id', 'created_at'],
-  post_comments: ['id', 'post_id', 'user_id', 'parent_id', 'content', 'created_at'],
-  post_likes: ['id', 'post_id', 'user_id', 'created_at'],
 };
 
 const DEFAULTS = {
@@ -119,9 +83,6 @@ const DEFAULTS = {
   task_members:    { task_id: 0, user_id: 0, real_name: '', gender: '', age: 0, role: 'member' },
   checkin_items:   { task_id: 0, title: '', media_type: '', media_url: '' },
   checkin_records: { item_id: 0, user_id: 0, note: '', watched_at: 0, submitted_at: 0 },
-  posts:           { task_id: 0, user_id: 0, content: '', source: 'manual', checkin_record_id: 0 },
-  post_comments:   { post_id: 0, user_id: 0, parent_id: 0, content: '' },
-  post_likes:      { post_id: 0, user_id: 0 },
 };
 
 const data = { seq: {} };

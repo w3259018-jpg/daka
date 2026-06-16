@@ -1,1 +1,4 @@
-{ "navigationBarTitleText": "任务详情", "enablePullDownRefresh": true }
+{
+  "navigationBarTitleText": "任务详情",
+  "enablePullDownRefresh": true
+}

@@ -1,1 +1,41 @@
+.item-sub {
+  margin-top: 8rpx;
+}
 
+.video-player {
+  width: 100%;
+  margin-top: 24rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.audio-card {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: 28rpx;
+  background: #FBEFE4;
+}
+
+.audio-tip {
+  margin-top: 14rpx;
+}
+
+.note-input {
+  min-height: 220rpx;
+  margin-top: 16rpx;
+}
+
+.privacy-note {
+  margin: 18rpx 0;
+  padding: 18rpx 20rpx;
+  border-radius: 22rpx;
+  background: #FBEFE4;
+  color: #E98243;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.submitted-note {
+  margin-top: 12rpx;
+  line-height: 1.65;
+}

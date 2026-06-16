@@ -1,40 +1,147 @@
-const { request, ensureLogin, toast, safe } = require('../../utils/api');
+const { request, ensureLogin, safe } = require('../../utils/api');
+
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+const formatDateRange = (task) => {
+  const start = task.start_date || '不限';
+  const end = task.end_date || '不限';
+  return `${start} - ${end}`;
+};
+
+const normalizeTask = (task) => {
+  const total = Number(task.item_count || 0);
+  const completed = Number(task.my_completed_count || 0);
+  const currentItem = task.current_item || null;
+  const role = task.role === 'admin' ? 'admin' : 'member';
+
+  return {
+    ...task,
+    current_item: currentItem,
+    role,
+    roleText: role === 'admin' ? '管理员' : '成员',
+    progressText: `${completed}/${total}`,
+    dateText: formatDateRange(task),
+    currentTitle: currentItem ? currentItem.title : '暂无待打卡内容',
+    isComplete: total > 0 && completed >= total
+  };
+};
 
 Page({
-  data: { tasks: [], showCreate: false, name: '', startDate: '', endDate: '',
-          showJoin: false, joinCode: '' },
-
-  async onShow() {
-    await ensureLogin();
-    const tasks = await safe(request('/api/tasks'), []);
-    this.setData({ tasks });
+  data: {
+    user: {},
+    tasks: [],
+    pending: [],
+    managed: [],
+    primaryTask: null,
+    remainingCount: 0,
+    completedCount: 0,
+    todayText: '',
+    week: [],
+    showJoin: false,
+    joinCode: ''
   },
 
-  onInput(e) { this.setData({ [e.currentTarget.dataset.k]: e.detail.value }); },
-  pickStart(e) { this.setData({ startDate: e.detail.value }); },
-  pickEnd(e)   { this.setData({ endDate: e.detail.value }); },
-  toggleCreate() { this.setData({ showCreate: !this.data.showCreate, showJoin: false }); },
-  toggleJoin()   { this.setData({ showJoin: !this.data.showJoin, showCreate: false }); },
+  async onShow() {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) tabBar.setData({ selected: 0 });
 
-  async create() {
-    const { name, startDate, endDate } = this.data;
-    if (!name) return toast('请填写任务名称');
-    try {
-      await request('/api/tasks', { method: 'POST', data: { name, start_date: startDate, end_date: endDate } });
-      toast('已创建', 'success');
-      this.setData({ showCreate: false, name: '', startDate: '', endDate: '' });
-      this.onShow();
-    } catch (_) { /* toast 已提示 */ }
+    await ensureLogin();
+    await this.load();
+  },
+
+  async onPullDownRefresh() {
+    await this.load();
+    wx.stopPullDownRefresh();
+  },
+
+  async load() {
+    const app = getApp();
+    const cachedUser = (app && app.globalData && app.globalData.user) || {};
+    const [user, rawTasks] = await Promise.all([
+      safe(request('/api/me'), cachedUser),
+      safe(request('/api/tasks'), [])
+    ]);
+
+    if (app && app.globalData) {
+      app.globalData.user = { ...(app.globalData.user || {}), ...user };
+    }
+
+    const tasks = (rawTasks || []).map(normalizeTask);
+    const pending = tasks.filter(task => !!task.current_item);
+    const completed = tasks.filter(task => task.isComplete);
+    const managed = tasks.filter(task => task.role === 'admin');
+    const now = new Date();
+    const personalDoneCount = tasks.reduce((sum, task) => sum + Number(task.my_completed_count || 0), 0);
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(now.getDate() - 6 + i);
+      return {
+        key: `${d.getMonth() + 1}-${d.getDate()}`,
+        label: WEEK[d.getDay()],
+        day: d.getDate(),
+        today: i === 6,
+        done: i >= Math.max(0, 7 - Math.min(personalDoneCount, 7))
+      };
+    });
+
+    this.setData({
+      user,
+      tasks,
+      pending,
+      managed,
+      primaryTask: pending[0] || null,
+      remainingCount: pending.length,
+      completedCount: completed.length,
+      todayText: `${now.getMonth() + 1}月${now.getDate()}日 周${WEEK[now.getDay()]}`,
+      week
+    });
+  },
+
+  onInput(e) {
+    this.setData({ [e.currentTarget.dataset.k]: e.detail.value });
+  },
+
+  toggleJoin() {
+    this.setData({ showJoin: !this.data.showJoin });
   },
 
   async join() {
     const code = (this.data.joinCode || '').trim().toUpperCase();
-    if (!code) return;
+    if (!code) {
+      wx.showToast({ title: '请输入邀请码', icon: 'none' });
+      return;
+    }
+
     try {
-      const t = await request('/api/tasks/by-code/' + code);
-      wx.navigateTo({ url: `/pages/join/join?code=${code}&id=${t.id}&name=${encodeURIComponent(t.name)}` });
-    } catch (_) { /* toast 已提示 */ }
+      const task = await request('/api/tasks/by-code/' + encodeURIComponent(code));
+      wx.navigateTo({
+        url: `/pages/join/join?code=${encodeURIComponent(code)}&id=${task.id}&name=${encodeURIComponent(task.name)}`
+      });
+    } catch (_) {
+      // request() 已展示错误提示。
+    }
   },
 
-  open(e) { wx.navigateTo({ url: '/pages/task/task?id=' + e.currentTarget.dataset.id }); }
+  openTask(e) {
+    wx.navigateTo({ url: '/pages/task/task?id=' + e.currentTarget.dataset.id });
+  },
+
+  openCurrent(e) {
+    const itemId = e.currentTarget.dataset.itemId;
+    if (!itemId) return;
+    wx.navigateTo({ url: '/pages/item/item?id=' + itemId });
+  },
+
+  openFirstPending() {
+    const task = this.data.primaryTask;
+    if (!task || !task.current_item) {
+      wx.showToast({ title: '今天暂无待打卡内容', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/item/item?id=' + task.current_item.id });
+  },
+
+  openCreate() {
+    wx.navigateTo({ url: '/pages/create/create' });
+  }
 });

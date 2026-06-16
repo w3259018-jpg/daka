@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>打卡小程序改版方案</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#eef1f4;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#17211b}
+    .board{width:1920px;height:1080px;padding:54px 64px;position:relative;overflow:hidden}
+    .board:before,.board:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);opacity:.35;pointer-events:none}
+    .board:before{width:420px;height:420px;right:-130px;top:-150px;background:var(--accent)}
+    .board:after{width:300px;height:300px;left:-110px;bottom:-130px;background:var(--accent2)}
+    .head{height:92px;display:flex;align-items:flex-start;justify-content:space-between;position:relative;z-index:2}
+    .eyebrow{font-size:15px;letter-spacing:3px;font-weight:800;color:var(--accent);margin-bottom:10px}
+    h1{font-size:38px;margin:0;letter-spacing:1px}.desc{font-size:16px;color:var(--muted);margin-top:10px}
+    .badge{border:1px solid var(--line);background:var(--soft);color:var(--accent);font-size:14px;font-weight:800;padding:11px 18px;border-radius:999px}
+    .phones{height:880px;display:flex;gap:27px;align-items:center;justify-content:center;position:relative;z-index:2}
+    .phone{width:395px;height:820px;border-radius:42px;background:var(--page);box-shadow:0 24px 70px rgba(26,42,33,.14);border:7px solid #fff;overflow:hidden;position:relative}
+    .status{height:42px;padding:14px 23px 0;display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:var(--text)}
+    .screen{height:778px;overflow:hidden;padding:12px 18px 82px}
+    .screen-title{display:flex;align-items:center;justify-content:space-between;margin:7px 2px 17px}.screen-title b{font-size:23px}.screen-title span{font-size:13px;color:var(--muted)}
+    .hello{font-size:25px;font-weight:850;line-height:1.2;margin:9px 2px 3px}.sub{font-size:13px;color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px;margin-top:13px;box-shadow:0 8px 26px rgba(40,60,48,.055)}
+    .hero{color:#fff;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));padding:20px}
+    .hero .sub{color:rgba(255,255,255,.78)}
+    .row{display:flex;align-items:center}.between{justify-content:space-between}.gap{gap:10px}.grow{flex:1}
+    .icon{width:45px;height:45px;border-radius:14px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:20px;font-weight:900}
+    .hero .icon{background:rgba(255,255,255,.2);color:#fff}.label{font-size:13px;color:var(--muted)}.strong{font-weight:850;font-size:15px}.big{font-size:34px;font-weight:900}
+    .btn{border-radius:999px;padding:9px 15px;background:var(--accent);color:white;font-size:13px;font-weight:800;white-space:nowrap}.btn.light{color:var(--accent);background:var(--soft)}.btn.ghost{color:var(--text);background:transparent;border:1px solid var(--line)}
+    .progress{height:7px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:12px}.progress i{display:block;height:100%;background:var(--accent);border-radius:99px}
+    .task{padding:12px 0;border-bottom:1px solid var(--line)}.task:last-child{border:0;padding-bottom:0}.task:first-child{padding-top:3px}
+    .tiny{font-size:11px;color:var(--muted);margin-top:5px}.tag{padding:4px 8px;border-radius:99px;background:var(--soft);color:var(--accent);font-size:10px;font-weight:800;margin-left:6px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}.stat{border-radius:14px;padding:12px 8px;text-align:center;background:rgba(255,255,255,.16)}.stat b{display:block;font-size:21px}.stat span{font-size:10px;opacity:.8}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:14px}.day{height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--soft);color:var(--muted)}.day.done{background:var(--accent);color:#fff}.day.today{border:2px solid var(--accent);color:var(--accent);background:transparent;font-weight:900}
+    .member{display:grid;grid-template-columns:37px 1fr 74px;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.avatar{width:35px;height:35px;border-radius:50%;background:linear-gradient(135deg,var(--soft),var(--accent2))}
+    .bar{height:5px;background:var(--soft);border-radius:99px;margin-top:7px}.bar i{height:100%;display:block;border-radius:99px;background:var(--accent)}
+    .note{background:var(--soft);border-radius:14px;padding:12px;font-size:12px;line-height:1.6;color:var(--text);margin-top:9px}
+    .empty{border:1px dashed var(--line);background:var(--soft);border-radius:17px;padding:22px;text-align:center;margin-top:12px}.empty b{display:block;font-size:14px;margin-top:8px}.empty span{font-size:11px;color:var(--muted)}
+    .tabs{position:absolute;bottom:0;left:0;right:0;height:70px;background:rgba(255,255,255,.94);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;padding-bottom:9px}.tab{text-align:center;font-size:10px;color:var(--muted)}.tab b{display:block;font-size:20px;line-height:1.2}.tab.active{color:var(--accent);font-weight:800}
+    .section{font-size:16px;font-weight:900}.pill-row{display:flex;gap:7px;margin-top:12px}.pill{font-size:11px;padding:7px 11px;border-radius:99px;background:var(--soft);color:var(--muted)}.pill.on{background:var(--accent);color:white}
+    .option-title{position:absolute;bottom:24px;left:64px;font-size:14px;font-weight:800;color:var(--muted);z-index:3}
+    .green{--page:#f7fbf8;--card:#fff;--accent:#22c86a;--accent2:#64dfa0;--soft:#eaf8f0;--line:#e5eee8;--muted:#7f9186;--text:#17211b}
+    .blue{--page:#f5f8fc;--card:#fff;--accent:#3478f6;--accent2:#68b3ff;--soft:#eaf2ff;--line:#e4ebf4;--muted:#77859a;--text:#172032}
+    .warm{--page:#fcfaf6;--card:#fffdf9;--accent:#e98243;--accent2:#f2b36d;--soft:#fbefe4;--line:#f0e7dc;--muted:#988878;--text:#30261e}
+    .warm .phone{border-color:#fffaf2}.warm .card{box-shadow:0 8px 26px rgba(89,61,37,.06)}.blue .phone{border-color:#fff}
+  </style>
+</head>
+<body>
+  <section class="board green" id="green">
+    <div class="head"><div><div class="eyebrow">OPTION A · 清新陪伴</div><h1>轻盈绿色，延续现有品牌认知</h1><div class="desc">成员端以“今天要做什么”为中心，管理员数据隐藏在任务内，学习成本最低。</div></div><div class="badge">推荐：成员使用频率高</div></div>
+    <div class="phones">
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="hello">早上好，学员</div><div class="sub">今天也向目标靠近一点</div>
+        <div class="card hero"><div class="row between"><div><div class="sub">今日打卡</div><div class="big">1 / 2</div></div><div class="icon">✓</div></div><div class="progress" style="background:rgba(255,255,255,.25)"><i style="width:50%;background:#fff"></i></div></div>
+        <div class="screen-title"><b>我的任务</b><span>全部任务 ›</span></div>
+        <div class="card"><div class="task row gap"><div class="icon">书</div><div class="grow"><div class="strong">晨读计划 <span class="tag">成员</span></div><div class="tiny">今日未完成 · 截止 21:00</div></div><div class="btn">去打卡</div></div><div class="task row gap"><div class="icon">跑</div><div class="grow"><div class="strong">每日运动</div><div class="tiny">今日已完成</div></div><div class="btn light">查看</div></div></div>
+        <div class="card"><div class="row between"><b class="section">本周坚持</b><span class="label">已完成 5 次</span></div><div class="calendar"><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day today">六</div><div class="day">日</div></div></div>
+      </div><div class="tabs"><div class="tab active"><b>⌂</b>首页</div><div class="tab"><b>□</b>任务</div><div class="tab"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>晨读计划</b><span>成员</span></div><div class="card hero"><div class="row gap"><div class="icon">书</div><div><div class="strong" style="font-size:20px">21 天晨读计划</div><div class="sub">6月10日 - 6月30日</div></div></div><div class="stats"><div class="stat"><b>8</b><span>我的完成</span></div><div class="stat"><b>21</b><span>任务天数</span></div><div class="stat"><b>38%</b><span>我的进度</span></div></div></div>
+        <div class="card"><div class="row between"><b class="section">今日任务</b><span class="tag">仅自己可见</span></div><div class="task row gap"><div class="icon">▶</div><div class="grow"><div class="strong">阅读第 8 章</div><div class="tiny">视频 · 12 分钟</div></div><div class="btn">开始</div></div></div>
+        <div class="card"><b class="section">我的任务日历</b><div class="calendar"><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day done">✓</div><div class="day today">9</div><div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div><div class="day">14</div></div></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>任务管理</b><span>分享邀请 ›</span></div><div class="card hero"><div class="strong" style="font-size:20px">21 天晨读计划</div><div class="stats"><div class="stat"><b>12</b><span>参与成员</span></div><div class="stat"><b>9</b><span>今日完成</span></div><div class="stat"><b>75%</b><span>完成率</span></div></div></div>
+        <div class="card"><div class="row between"><b class="section">成员完成情况</b><span class="label">今天</span></div><div class="pill-row"><div class="pill on">全部 12</div><div class="pill">已完成 9</div><div class="pill">未完成 3</div></div>
+        <div class="member"><div class="avatar"></div><div><div class="strong">陈晓雨</div><div class="bar"><i style="width:90%"></i></div></div><div class="tag">已完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">林明</div><div class="bar"><i style="width:64%"></i></div></div><div class="tag">已完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">周可</div><div class="bar"><i style="width:45%"></i></div></div><div class="tag" style="filter:grayscale(1)">未完成</div></div></div>
+        <div class="card row between"><div><b class="section">发布新打卡</b><div class="tiny">上传音频或视频任务</div></div><div class="btn">发布</div></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>我的记录</b><span>筛选 ›</span></div><div class="card hero"><div class="sub">累计完成</div><div class="big">36 次</div><div class="sub">所有记录仅自己和任务管理员可查看</div></div>
+        <div class="card"><div class="row between"><b class="section">6月15日 · 晨读计划</b><span class="tag">已完成</span></div><div class="note">阅读第 8 章：今天理解了长期坚持比一次性投入更重要。</div><div class="tiny">提交于 08:32</div></div>
+        <div class="card"><div class="row between"><b class="section">6月14日 · 每日运动</b><span class="tag">已完成</span></div><div class="note">完成 30 分钟慢跑，状态不错。</div><div class="tiny">提交于 19:46</div></div>
+        <div class="empty"><div class="icon" style="margin:auto">锁</div><b>记录不会公开展示</b><span>没有评论、点赞或成员动态</span></div>
+      </div><div class="tabs"><div class="tab"><b>⌂</b>首页</div><div class="tab"><b>□</b>任务</div><div class="tab active"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+    </div><div class="option-title">成员首页 · 成员任务 · 管理员看板 · 本人记录</div>
+  </section>
+
+  <section class="board blue" id="blue">
+    <div class="head"><div><div class="eyebrow">OPTION B · 专业效率</div><h1>清晰蓝色，强调任务管理与数据</h1><div class="desc">首页按角色显示工作台，管理员操作最短路径，适合机构、班级或企业场景。</div></div><div class="badge">推荐：管理员使用频率高</div></div>
+    <div class="phones">
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>工作台</b><span>6月15日</span></div><div class="card hero"><div class="sub">我的今日进度</div><div class="row between"><div class="big">50%</div><div class="btn" style="background:#fff;color:var(--accent)">继续打卡</div></div><div class="progress" style="background:rgba(255,255,255,.25)"><i style="width:50%;background:#fff"></i></div></div>
+        <div class="screen-title"><b>待办任务</b><span>2 项</span></div><div class="card"><div class="task row gap"><div class="icon">01</div><div class="grow"><div class="strong">晨读计划</div><div class="tiny">阅读第 8 章 · 截止 21:00</div></div><div class="btn">打卡</div></div><div class="task row gap"><div class="icon">02</div><div class="grow"><div class="strong">每日运动</div><div class="tiny">已完成 · 19:46</div></div><div class="btn light">详情</div></div></div>
+        <div class="card"><div class="row between"><b class="section">我管理的任务</b><span class="label">2 个</span></div><div class="task row between"><div><div class="strong">产品训练营</div><div class="tiny">今日 18 / 24 人完成</div></div><div class="btn ghost">管理</div></div></div>
+      </div><div class="tabs"><div class="tab active"><b>▦</b>工作台</div><div class="tab"><b>□</b>任务</div><div class="tab"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>任务详情</b><span>成员模式</span></div><div class="card"><div class="row gap"><div class="icon">书</div><div><div class="strong" style="font-size:19px">21 天晨读计划</div><div class="tiny">管理员：刘老师</div></div></div><div class="progress"><i style="width:38%"></i></div><div class="row between" style="margin-top:8px"><span class="label">我的进度</span><b>8 / 21</b></div></div>
+        <div class="screen-title"><b>今天</b><span>仅本人记录</span></div><div class="card"><div class="row between"><span class="tag">视频任务</span><span class="label">12 分钟</span></div><div class="strong" style="font-size:19px;margin-top:13px">阅读第 8 章并提交心得</div><div class="note">完成观看后，可填写本人的打卡心得。</div><div class="btn" style="text-align:center;margin-top:13px">开始任务</div></div>
+        <div class="card"><div class="row between"><b class="section">我的历史完成</b><span class="label">查看全部 ›</span></div><div class="calendar"><div class="day done">1</div><div class="day done">2</div><div class="day done">3</div><div class="day done">4</div><div class="day done">5</div><div class="day done">6</div><div class="day done">7</div><div class="day done">8</div><div class="day today">9</div><div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div><div class="day">14</div></div></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>管理控制台</b><span>•••</span></div><div class="card hero"><div class="row between"><div><div class="sub">产品训练营</div><div class="big">75%</div></div><div class="btn" style="background:#fff;color:var(--accent)">邀请成员</div></div><div class="sub">今日整体完成率</div></div>
+        <div class="card"><div class="stats" style="margin:0"><div class="stat" style="background:var(--soft)"><b>24</b><span class="label">成员</span></div><div class="stat" style="background:var(--soft)"><b>18</b><span class="label">已完成</span></div><div class="stat" style="background:var(--soft)"><b>6</b><span class="label">未完成</span></div></div></div>
+        <div class="screen-title"><b>成员状态</b><span>导出 ›</span></div><div class="card"><div class="pill-row" style="margin-top:0"><div class="pill on">今天</div><div class="pill">本周</div><div class="pill">全部</div></div><div class="member"><div class="avatar"></div><div><div class="strong">陈晓雨</div><div class="tiny">连续完成 8 天</div></div><div class="tag">已完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">林明</div><div class="tiny">累计完成 6 次</div></div><div class="tag">已完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">周可</div><div class="tiny">累计完成 4 次</div></div><div class="tag" style="filter:grayscale(1)">未完成</div></div></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>我的记录</b><span>导出</span></div><div class="card"><div class="row between"><div><span class="label">本月完成</span><div class="big" style="color:var(--accent)">18</div></div><div><span class="label">累计完成</span><div class="big">36</div></div><div><span class="label">参与任务</span><div class="big">3</div></div></div></div>
+        <div class="pill-row"><div class="pill on">全部</div><div class="pill">晨读计划</div><div class="pill">每日运动</div></div>
+        <div class="card"><div class="row between"><b class="section">阅读第 8 章</b><span class="tag">6月15日</span></div><div class="note">今天理解了长期坚持比一次性投入更重要。</div></div><div class="card"><div class="row between"><b class="section">完成 30 分钟慢跑</b><span class="tag">6月14日</span></div><div class="note">今天状态不错，配速比昨天更稳定。</div></div>
+        <div class="empty"><b>隐私边界清晰</b><span>记录仅本人及对应任务管理员可查看</span></div>
+      </div><div class="tabs"><div class="tab"><b>▦</b>工作台</div><div class="tab"><b>□</b>任务</div><div class="tab active"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+    </div><div class="option-title">角色工作台 · 成员任务 · 管理控制台 · 本人记录</div>
+  </section>
+
+  <section class="board warm" id="warm">
+    <div class="head"><div><div class="eyebrow">OPTION C · 温暖专注</div><h1>柔和米橙，强调个人节奏与持续感</h1><div class="desc">降低数据压迫感，用日程与记录建立陪伴体验，适合个人成长和小型学习组。</div></div><div class="badge">推荐：强调陪伴与长期使用</div></div>
+    <div class="phones">
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="hello">今天，完成一件小事</div><div class="sub">每一次记录，都在靠近目标</div><div class="card hero"><div class="row between"><div><div class="sub">今日计划</div><div class="big">还有 1 项</div></div><div class="icon">日</div></div><div class="btn" style="background:#fff;color:var(--accent);text-align:center;margin-top:17px">继续完成今日打卡</div></div>
+        <div class="screen-title"><b>正在进行</b><span>查看全部 ›</span></div><div class="card"><div class="task row gap"><div class="icon">书</div><div class="grow"><div class="strong">21 天晨读计划</div><div class="tiny">第 9 天 · 今天未完成</div></div><div class="btn">继续</div></div><div class="progress"><i style="width:38%"></i></div></div>
+        <div class="card"><div class="row between"><b class="section">这周的节奏</b><span class="label">5 / 7 天</span></div><div class="calendar"><div class="day done">一</div><div class="day done">二</div><div class="day done">三</div><div class="day done">四</div><div class="day done">五</div><div class="day today">六</div><div class="day">日</div></div></div>
+      </div><div class="tabs"><div class="tab active"><b>⌂</b>今天</div><div class="tab"><b>□</b>计划</div><div class="tab"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>今天的晨读</b><span>第 9 天</span></div><div class="card hero"><div class="strong" style="font-size:21px">阅读第 8 章</div><div class="sub" style="margin-top:7px">管理员为你发布的视频任务</div><div class="empty" style="background:rgba(255,255,255,.17);border-color:rgba(255,255,255,.3)"><div style="font-size:34px">▶</div><b>12 分钟</b><span style="color:rgba(255,255,255,.78)">点击开始观看</span></div></div>
+        <div class="card"><b class="section">写下今天的收获</b><div class="note" style="min-height:110px;color:var(--muted)">完成观看后，在这里记录自己的心得。内容不会向其他成员展示。</div><div class="btn" style="text-align:center;margin-top:13px">提交打卡</div></div>
+        <div class="empty"><div class="icon" style="margin:auto">锁</div><b>安心记录，只为自己</b><span>管理员仅查看任务完成情况与本任务记录</span></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>计划管理</b><span>设置 ›</span></div><div class="card hero"><div class="strong" style="font-size:21px">21 天晨读计划</div><div class="sub">今天有 9 位成员完成</div><div class="progress" style="background:rgba(255,255,255,.25)"><i style="width:75%;background:#fff"></i></div><div class="row between" style="margin-top:10px"><span class="sub">整体进度</span><b>75%</b></div></div>
+        <div class="card row between"><div><b class="section">发布明日任务</b><div class="tiny">设置标题并上传音频或视频</div></div><div class="btn">发布</div></div>
+        <div class="screen-title"><b>今天的成员</b><span>12 人 ›</span></div><div class="card"><div class="member"><div class="avatar"></div><div><div class="strong">陈晓雨</div><div class="tiny">今天 08:32 完成</div></div><div class="tag">完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">林明</div><div class="tiny">今天 09:10 完成</div></div><div class="tag">完成</div></div><div class="member"><div class="avatar"></div><div><div class="strong">周可</div><div class="tiny">今天尚未完成</div></div><div class="tag" style="filter:grayscale(1)">待完成</div></div></div>
+      </div></div>
+      <div class="phone"><div class="status"><span>9:41</span><span>● ◔ ▰</span></div><div class="screen">
+        <div class="screen-title"><b>我的成长记录</b><span>日历 ›</span></div><div class="card hero"><div class="sub">已经认真记录</div><div class="big">36 个瞬间</div><div class="sub">最近一次：今天 08:32</div></div>
+        <div class="screen-title"><b>六月</b><span>筛选任务 ›</span></div><div class="card"><div class="row gap"><div class="icon">15</div><div class="grow"><div class="strong">晨读计划 · 第 9 天</div><div class="tiny">今天 08:32</div></div></div><div class="note">长期坚持比一次性投入更重要。</div></div><div class="card"><div class="row gap"><div class="icon">14</div><div class="grow"><div class="strong">每日运动</div><div class="tiny">昨天 19:46</div></div></div><div class="note">完成 30 分钟慢跑，状态不错。</div></div>
+        <div class="empty"><b>属于你的私人记录</b><span>不展示点赞、评论和其他成员动态</span></div>
+      </div><div class="tabs"><div class="tab"><b>⌂</b>今天</div><div class="tab"><b>□</b>计划</div><div class="tab active"><b>◎</b>记录</div><div class="tab"><b>○</b>我的</div></div></div>
+    </div><div class="option-title">今日首页 · 打卡提交 · 管理员计划 · 成长记录</div>
+  </section>
+</body>
+</html>

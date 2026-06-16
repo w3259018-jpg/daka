@@ -1,27 +1,18 @@
-// 接口地址按小程序运行环境自动切换：
-//   develop = 微信开发者工具 / 真机调试
-//   trial   = 体验版
-//   release = 正式版
+// 接口地址自动切换：
+//   微信开发者工具(devtools) → DEV_API_BASE（局域网 IP，方便本地联调）
+//   真机调试 / 体验版 / 正式版 → PROD_API_BASE（线上 https 域名）
 //
-// 上线流程：
-//   1. 上线前把 PROD_API_BASE 改成你的 微信云托管 公网域名（必须 https）
-//   2. 在「微信公众平台 → 开发管理 → 服务器域名」里把这个域名加到
-//      request 合法域名 + uploadFile 合法域名 + downloadFile 合法域名
-//
-// 真机/局域网联调时，把 DEV_API_BASE 换成你电脑的局域网 IP（比如 192.168.x.x）。
+// 上线前需在「微信公众平台 → 开发管理 → 服务器域名」里把 PROD_API_BASE
+// 加到 request / uploadFile / downloadFile 合法域名。
 
 const DEV_API_BASE  = 'http://192.168.31.6:3000';
-const PROD_API_BASE = 'https://REPLACE_WITH_YOUR_CLOUDRUN_DOMAIN';
+const PROD_API_BASE = 'https://weiyidaka.online';
 
-const getEnvVersion = () => {
-  try {
-    return wx.getAccountInfoSync().miniProgram.envVersion;
-  } catch (_) {
-    return 'develop';
-  }
-};
+let env = 'develop';
+let platform = '';
+try { env = wx.getAccountInfoSync().miniProgram.envVersion; } catch (_) {}
+try { platform = wx.getSystemInfoSync().platform; } catch (_) {}
 
-const env = getEnvVersion();
-const apiBase = (env === 'release' || env === 'trial') ? PROD_API_BASE : DEV_API_BASE;
+const apiBase = PROD_API_BASE;
 
 module.exports = { apiBase, env };

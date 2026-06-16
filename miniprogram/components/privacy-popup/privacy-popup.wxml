@@ -1,0 +1,18 @@
+<view wx:if="{{show}}" class="pp-mask" catchtouchmove="stop">
+  <view class="pp-card" catchtap="stop">
+    <view class="pp-title">隐私授权提示</view>
+    <view class="pp-content">
+      欢迎使用「为一自在」。在你使用我们的服务前，请仔细阅读
+      <text class="pp-link" bindtap="openContract">{{privacyContractName}}</text>。
+      为了正常提供打卡、选择文件、保存导出、复制邀请码等功能，我们将向你申请相关权限。
+    </view>
+    <view class="pp-actions">
+      <button class="pp-btn pp-btn-cancel" bindtap="onDisagree">拒绝</button>
+      <button
+        class="pp-btn pp-btn-ok"
+        id="agree-btn"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="onAgree">同意</button>
+    </view>
+  </view>
+</view>

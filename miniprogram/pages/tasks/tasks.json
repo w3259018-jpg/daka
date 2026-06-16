@@ -1,1 +1,4 @@
-{ "navigationBarTitleText": "任务" }
+{
+  "navigationBarTitleText": "今天",
+  "enablePullDownRefresh": true
+}

@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const axios = require('axios');
+const path = require('node:path');
 const { customAlphabet } = require('nanoid');
 const db = require('./db');
 const storage = require('./storage');
@@ -17,6 +19,19 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 if (storage.mode === 'disk') {
+  app.use('/uploads', (req, res, next) => {
+    let pathname;
+    try {
+      pathname = decodeURIComponent(req.path);
+    } catch (_) {
+      return res.status(404).json({ err: 'not found' });
+    }
+    const filename = path.basename(pathname).toLowerCase();
+    if (/^(?:export_|admin_export_).*\.(?:md|tsv)$/.test(filename)) {
+      return res.status(404).json({ err: 'not found' });
+    }
+    next();
+  });
   app.use('/uploads', express.static(storage.dir));
 }
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -37,10 +52,10 @@ const getAccessToken = async () => {
     return accessToken.token;
   }
   try {
-    const res = await fetch(
-      `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}`
+    const res = await axios.get(
+      `http://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}`
     );
-    const data = await res.json();
+    const data = res.data;
     if (data.access_token) {
       accessToken.token = data.access_token;
       accessToken.expiresAt = now + (data.expires_in || 7200) * 1000;
@@ -63,15 +78,12 @@ const checkText = async (text) => {
     const token = await getAccessToken();
     if (!token) return { safe: true, reason: '获取token失败，跳过检查' };
     
-    const res = await fetch(
-      `https://api.weixin.qq.com/wxa/msg_sec_check?access_token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text })
-      }
+    const res = await axios.post(
+      `http://api.weixin.qq.com/wxa/msg_sec_check?access_token=${token}`,
+      { content: text },
+      { headers: { 'Content-Type': 'application/json' } }
     );
-    const data = await res.json();
+    const data = res.data;
     // errcode: 0 = 安全, 87014 = 含有违法违规内容
     if (data.errcode === 87014) {
       return { safe: false, reason: '内容可能含有违规信息，请修改后重试' };
@@ -93,15 +105,12 @@ const checkImage = async (buffer, mimetype) => {
     const token = await getAccessToken();
     if (!token) return { safe: true };
     
-    const res = await fetch(
-      `https://api.weixin.qq.com/wxa/img_sec_check?access_token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'multipart/form-data' },
-        body: buffer
-      }
+    const res = await axios.post(
+      `http://api.weixin.qq.com/wxa/img_sec_check?access_token=${token}`,
+      buffer,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     );
-    const data = await res.json();
+    const data = res.data;
     if (data.errcode === 87014) {
       return { safe: false, reason: '图片可能含有违规信息，请更换图片' };
     }
@@ -123,15 +132,12 @@ const checkMediaAsync = async (mediaUrl, mediaType) => {
     const token = await getAccessToken();
     if (!token) return { safe: true };
     
-    const res = await fetch(
-      `https://api.weixin.qq.com/wxa/media_check_async?access_token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ media_url: mediaUrl, media_type: mediaType })
-      }
+    const res = await axios.post(
+      `http://api.weixin.qq.com/wxa/media_check_async?access_token=${token}`,
+      { media_url: mediaUrl, media_type: mediaType },
+      { headers: { 'Content-Type': 'application/json' } }
     );
-    const data = await res.json();
+    const data = res.data;
     if (data.errcode === 0) {
       console.log(`[内容安全] 媒体异步检测已提交，trace_id: ${data.trace_id}`);
     }
@@ -151,6 +157,45 @@ const isAdmin = (tid, uid) => {
 const isMember = (tid, uid) => !!find('task_members', m => m.task_id === tid && m.user_id === uid);
 const guardMember = (tid, uid, res) => isMember(tid, uid) || (res.status(403).json({ err: 'not member' }), false);
 
+const taskItems = tid =>
+  filter('checkin_items', i => i.task_id === tid)
+    .sort((a, b) => b.created_at - a.created_at || b.id - a.id);
+
+const submittedRecords = (tid, items = taskItems(tid)) => {
+  const ids = new Set(items.map(i => i.id));
+  return filter('checkin_records', r => r.submitted_at > 0 && ids.has(r.item_id));
+};
+
+const recordView = (record, itemById) => {
+  const item = itemById.get(record.item_id) || {};
+  return {
+    id: record.id,
+    item_id: record.item_id,
+    item_title: item.title || '',
+    note: record.note,
+    watched_at: record.watched_at,
+    submitted_at: record.submitted_at
+  };
+};
+
+const tsvCell = value => {
+  const cleaned = String(value == null ? '' : value).replace(/[\t\r\n]/g, ' ');
+  return /^[=+\-@]/.test(cleaned.trimStart()) ? `'${cleaned}` : cleaned;
+};
+
+const memberAdminView = (tid, member, currentItem, records) => {
+  const user = find('users', u => u.id === member.user_id) || {};
+  return {
+    user_id: member.user_id,
+    nickname: user.nickname || '',
+    avatar: user.avatar || '',
+    real_name: member.real_name,
+    role: member.role || (isCreator(tid, member.user_id) ? 'creator' : 'member'),
+    completed_count: records.length,
+    current_done: !!(currentItem && records.some(r => r.item_id === currentItem.id))
+  };
+};
+
 // ---------- 用户 ----------
 // 静默登录：仅凭 wx.login 拿到的 code 完成登录。
 // 账号一致性：优先用 unionid 复用账号，其次用 openid，确保同一微信用户一定对应同一个小程序账号。
@@ -162,12 +207,16 @@ app.post('/api/login', async (req, res) => {
   let openid = '', unionid = '';
   if (process.env.WX_APPID && process.env.WX_SECRET) {
     try {
-      const r = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`);
-      const data = await r.json();
+      const r = await axios.get(`http://api.weixin.qq.com/sns/jscode2session?appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`);
+      const data = r.data;
       if (!data.openid) return res.status(401).json({ err: data.errmsg || '微信登录失败' });
       openid = data.openid;
       unionid = data.unionid || '';
-    } catch (e) { return res.status(500).json({ err: 'wx api error' }); }
+    } catch (e) {
+      const errDetail = e.response ? `status=${e.response.status} data=${JSON.stringify(e.response.data)}` : (e.message || e);
+      console.error('[login] jscode2session failed:', errDetail, '| stack:', e && e.stack);
+      return res.status(500).json({ err: 'wx api error' });
+    }
   } else {
     openid = 'wx_' + code; // 开发期回退：未配置 secret 时按 code 生成
   }
@@ -206,6 +255,16 @@ app.put('/api/me/profile', auth, (req, res) => {
   res.json({ id: u.id, nickname: u.nickname, avatar: u.avatar });
 });
 
+// ---------- 内容安全预检 ----------
+// 客户端在发帖/评论/提交心得前调用此接口做一次预检，提早提示用户。
+// 真正提交时各业务接口仍会再做一次 checkText，避免客户端绕过校验。
+app.post('/api/sec-check', auth, async (req, res) => {
+  const { content } = req.body || {};
+  if (!content || !String(content).trim()) return res.json({ safe: true });
+  const r = await checkText(String(content));
+  res.json({ safe: r.safe !== false, reason: r.reason || '' });
+});
+
 // ---------- 上传 ----------
 app.post('/api/upload', auth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ err: 'no file' });
@@ -236,9 +295,35 @@ app.post('/api/tasks', auth, (req, res) => {
 });
 
 app.get('/api/tasks', auth, (req, res) => {
+  const mySubmittedRecords = filter('checkin_records', r =>
+    r.user_id === req.user.id && r.submitted_at > 0);
+  const completedItemIds = new Set(mySubmittedRecords.map(r => r.item_id));
+  const itemsByTask = new Map();
+  for (const item of filter('checkin_items', () => true)) {
+    const items = itemsByTask.get(item.task_id) || [];
+    items.push(item);
+    itemsByTask.set(item.task_id, items);
+  }
+  for (const items of itemsByTask.values()) {
+    items.sort((a, b) => b.created_at - a.created_at || b.id - a.id);
+  }
   const list = filter('task_members', m => m.user_id === req.user.id)
-    .map(m => { const t = find('tasks', t => t.id === m.task_id); return t && { ...t, role: t.admin_id === req.user.id ? 'admin' : 'member' }; })
-    .filter(Boolean).sort((a, b) => b.created_at - a.created_at);
+    .map(m => {
+      const task = find('tasks', t => t.id === m.task_id);
+      if (!task) return null;
+      const items = itemsByTask.get(task.id) || [];
+      const myCompletedCount = items.filter(i => completedItemIds.has(i.id)).length;
+      const currentItem = items.slice().reverse().find(i => !completedItemIds.has(i.id)) || null;
+      return {
+        ...task,
+        role: isAdmin(task.id, req.user.id) ? 'admin' : 'member',
+        my_completed_count: myCompletedCount,
+        item_count: items.length,
+        current_item: currentItem
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.created_at - a.created_at);
   res.json(list);
 });
 
@@ -247,16 +332,52 @@ app.get('/api/tasks/:id', auth, (req, res) => {
   const t = find('tasks', t => t.id === id);
   if (!t) return res.status(404).json({ err: 'not found' });
   if (!guardMember(id, req.user.id, res)) return;
-  const members = filter('task_members', m => m.task_id === id).map(m => {
-    const u = find('users', u => u.id === m.user_id) || {};
-    const role = m.role || (m.user_id === t.admin_id ? 'creator' : 'member');
-    return { user_id: m.user_id, nickname: u.nickname, avatar: u.avatar, real_name: m.real_name, gender: m.gender, age: m.age, role };
-  });
-  const items = filter('checkin_items', i => i.task_id === id).sort((a, b) => b.created_at - a.created_at).map(i => {
-    const my = find('checkin_records', r => r.item_id === i.id && r.user_id === req.user.id);
-    return { ...i, done: !!(my && my.submitted_at) };
-  });
-  res.json({ ...t, members, items, is_admin: isAdmin(id, req.user.id), is_creator: t.admin_id === req.user.id });
+  const taskItemList = taskItems(id);
+  const taskSubmittedRecords = submittedRecords(id, taskItemList);
+  const myCompletedItemIds = new Set(
+    taskSubmittedRecords.filter(r => r.user_id === req.user.id).map(r => r.item_id)
+  );
+  const items = taskItemList.map(i => ({ ...i, done: myCompletedItemIds.has(i.id) }));
+  const payload = {
+    ...t,
+    items,
+    is_admin: isAdmin(id, req.user.id),
+    is_creator: isCreator(id, req.user.id)
+  };
+  if (payload.is_admin) {
+    const latestItem = items[0] || null;
+    const recordsByUser = new Map();
+    for (const record of taskSubmittedRecords) {
+      const records = recordsByUser.get(record.user_id) || [];
+      records.push(record);
+      recordsByUser.set(record.user_id, records);
+    }
+    const members = filter('task_members', m => m.task_id === id)
+      .map(m => memberAdminView(id, m, latestItem, recordsByUser.get(m.user_id) || []));
+    const completedCount = members.filter(m => m.current_done).length;
+    payload.members = members;
+    payload.admin_summary = {
+      member_count: members.length,
+      completed_count: completedCount,
+      incomplete_count: members.length - completedCount,
+      completion_rate: members.length ? Math.round(completedCount / members.length * 100) : 0
+    };
+  }
+  res.json(payload);
+});
+
+app.get('/api/tasks/:id/members/:uid/records', auth, (req, res) => {
+  const tid = +req.params.id;
+  const uid = +req.params.uid;
+  if (!isAdmin(tid, req.user.id)) return res.status(403).json({ err: 'admin only' });
+  if (!isMember(tid, uid)) return res.status(404).json({ err: 'not member' });
+  const items = taskItems(tid);
+  const itemById = new Map(items.map(i => [i.id, i]));
+  const records = filter('checkin_records', r =>
+    r.user_id === uid && r.submitted_at > 0 && itemById.has(r.item_id))
+    .sort((a, b) => b.submitted_at - a.submitted_at)
+    .map(r => recordView(r, itemById));
+  res.json(records);
 });
 
 // ---------- 多管理员管理（仅创建者 / 管理员） ----------
@@ -289,14 +410,10 @@ app.delete('/api/tasks/:id', auth, (req, res) => {
   const tid = +req.params.id;
   if (!isCreator(tid, req.user.id)) return res.status(403).json({ err: 'creator only' });
   const itemIds = new Set(filter('checkin_items', i => i.task_id === tid).map(i => i.id));
-  const postIds = new Set(filter('posts', p => p.task_id === tid).map(p => p.id));
   remove('tasks', t => t.id === tid);
   remove('task_members', m => m.task_id === tid);
   remove('checkin_items', i => i.task_id === tid);
   remove('checkin_records', r => itemIds.has(r.item_id));
-  remove('posts', p => p.task_id === tid);
-  remove('post_comments', c => postIds.has(c.post_id));
-  remove('post_likes', l => postIds.has(l.post_id));
   res.json({ ok: true });
 });
 
@@ -370,111 +487,61 @@ app.post('/api/items/:id/submit', auth, async (req, res) => {
   if (!rec || !rec.watched_at) return res.status(400).json({ err: 'must watch first' });
   if (rec.submitted_at) return res.status(409).json({ err: 'already submitted' });
   update('checkin_records', r => r.id === rec.id, { note, submitted_at: Date.now() });
-  insert('posts', { task_id: item.task_id, user_id: req.user.id, content: note, source: 'checkin', checkin_record_id: rec.id });
   res.json({ ok: true });
-});
-
-// ---------- 排行榜 ----------
-app.get('/api/tasks/:id/rank', auth, (req, res) => {
-  const tid = +req.params.id;
-  if (!guardMember(tid, req.user.id, res)) return;
-  const itemIds = new Set(filter('checkin_items', i => i.task_id === tid).map(i => i.id));
-  const list = filter('task_members', m => m.task_id === tid).map(m => {
-    const u = find('users', u => u.id === m.user_id) || {};
-    const cnt = filter('checkin_records', r => r.user_id === m.user_id && r.submitted_at > 0 && itemIds.has(r.item_id)).length;
-    return { user_id: m.user_id, nickname: u.nickname || m.real_name, avatar: u.avatar, real_name: m.real_name, cnt };
-  }).sort((a, b) => b.cnt - a.cnt);
-  res.json(list);
-});
-
-// ---------- 论坛 ----------
-const decoratePost = (p, uid) => {
-  const u = find('users', u => u.id === p.user_id) || {};
-  return {
-    ...p, nickname: u.nickname, avatar: u.avatar,
-    likes: filter('post_likes', l => l.post_id === p.id).length,
-    comments: filter('post_comments', c => c.post_id === p.id).length,
-    liked: !!find('post_likes', l => l.post_id === p.id && l.user_id === uid)
-  };
-};
-
-app.get('/api/tasks/:id/posts', auth, (req, res) => {
-  const tid = +req.params.id;
-  if (!guardMember(tid, req.user.id, res)) return;
-  const list = filter('posts', p => p.task_id === tid).sort((a, b) => b.created_at - a.created_at).map(p => decoratePost(p, req.user.id));
-  res.json(list);
-});
-
-app.post('/api/tasks/:id/posts', auth, async (req, res) => {
-  const tid = +req.params.id;
-  if (!guardMember(tid, req.user.id, res)) return;
-  const { content } = req.body;
-  if (!content) return res.status(400).json({ err: 'content required' });
-  
-  // 内容安全检查
-  const check = await checkText(content);
-  if (!check.safe) return res.status(400).json({ err: check.reason });
-  
-  res.json(insert('posts', { task_id: tid, user_id: req.user.id, content, source: 'manual', checkin_record_id: 0 }));
-});
-
-app.get('/api/posts/:id', auth, (req, res) => {
-  const p = find('posts', p => p.id === +req.params.id);
-  if (!p) return res.status(404).json({ err: 'not found' });
-  if (!guardMember(p.task_id, req.user.id, res)) return;
-  const comments = filter('post_comments', c => c.post_id === p.id).sort((a, b) => a.created_at - b.created_at).map(c => {
-    const u = find('users', u => u.id === c.user_id) || {};
-    return { ...c, nickname: u.nickname, avatar: u.avatar };
-  });
-  res.json({ ...decoratePost(p, req.user.id), commentList: comments });
-});
-
-app.post('/api/posts/:id/comment', auth, async (req, res) => {
-  const id = +req.params.id;
-  const { content, parent_id = 0 } = req.body;
-  const p = find('posts', p => p.id === id);
-  if (!p) return res.status(404).json({ err: 'not found' });
-  if (!guardMember(p.task_id, req.user.id, res)) return;
-  if (!content) return res.status(400).json({ err: 'content required' });
-  
-  // 内容安全检查
-  const check = await checkText(content);
-  if (!check.safe) return res.status(400).json({ err: check.reason });
-  
-  res.json(insert('post_comments', { post_id: id, user_id: req.user.id, parent_id: +parent_id || 0, content }));
-});
-
-app.post('/api/posts/:id/like', auth, (req, res) => {
-  const id = +req.params.id;
-  const p = find('posts', p => p.id === id);
-  if (!p) return res.status(404).json({ err: 'not found' });
-  if (!guardMember(p.task_id, req.user.id, res)) return;
-  const ex = find('post_likes', l => l.post_id === id && l.user_id === req.user.id);
-  if (ex) remove('post_likes', l => l.id === ex.id);
-  else insert('post_likes', { post_id: id, user_id: req.user.id });
-  res.json({ liked: !ex });
 });
 
 // ---------- 个人中心（任务内） ----------
 app.get('/api/tasks/:id/my-records', auth, (req, res) => {
   const tid = +req.params.id;
   if (!guardMember(tid, req.user.id, res)) return;
-  const items = filter('checkin_items', i => i.task_id === tid);
-  const ids = new Set(items.map(i => i.id));
-  const list = filter('checkin_records', r => r.user_id === req.user.id && r.submitted_at > 0 && ids.has(r.item_id))
-    .sort((a, b) => b.submitted_at - a.submitted_at).map(r => {
-      const item = items.find(i => i.id === r.item_id);
-      const post = find('posts', p => p.checkin_record_id === r.id);
-      return {
-        ...r, item_title: item && item.title, post_id: post && post.id,
-        likes: post ? filter('post_likes', l => l.post_id === post.id).length : 0,
-        comments: post ? filter('post_comments', c => c.post_id === post.id).length : 0
-      };
-    });
+  const items = taskItems(tid);
+  const itemById = new Map(items.map(i => [i.id, i]));
+  const list = filter('checkin_records', r =>
+    r.user_id === req.user.id && r.submitted_at > 0 && itemById.has(r.item_id))
+    .sort((a, b) => b.submitted_at - a.submitted_at)
+    .map(r => recordView(r, itemById));
   res.json(list);
 });
 
-app.post('/api/tasks/:id/export', auth, async (req, res) => {
+app.post('/api/tasks/:id/admin-export', auth, (req, res) => {
+  const tid = +req.params.id;
+  const task = find('tasks', t => t.id === tid);
+  if (!task) return res.status(404).json({ err: 'not found' });
+  if (!isAdmin(tid, req.user.id)) return res.status(403).json({ err: 'admin only' });
+
+  const items = taskItems(tid);
+  const itemById = new Map(items.map(i => [i.id, i]));
+  const recordsByUser = new Map();
+  for (const record of submittedRecords(tid, items)) {
+    const records = recordsByUser.get(record.user_id) || [];
+    records.push(record);
+    recordsByUser.set(record.user_id, records);
+  }
+  const rows = filter('task_members', m => m.task_id === tid).flatMap(member => {
+    const user = find('users', u => u.id === member.user_id) || {};
+    const name = member.real_name || user.nickname || member.user_id;
+    return (recordsByUser.get(member.user_id) || []).map(record => {
+      const item = itemById.get(record.item_id) || {};
+      return [
+        name,
+        item.title || '',
+        new Date(record.submitted_at).toLocaleString('zh-CN'),
+        record.note
+      ].map(tsvCell).join('\t');
+    });
+  });
+  if (!rows.length) return res.status(400).json({ err: 'no records' });
+
+  const filename = `admin_export_t${tid}_${Date.now()}.tsv`;
+  const buffer = Buffer.from(`成员\t任务\t提交时间\t心得\n${rows.join('\n')}`, 'utf8');
+  res.json({
+    filename,
+    mime_type: 'text/tab-separated-values; charset=utf-8',
+    content_base64: buffer.toString('base64')
+  });
+});
+
+app.post('/api/tasks/:id/export', auth, (req, res) => {
   const tid = +req.params.id;
   if (!guardMember(tid, req.user.id, res)) return;
   const { record_ids = [] } = req.body || {};
@@ -490,17 +557,27 @@ app.post('/api/tasks/:id/export', auth, async (req, res) => {
     return `## ${item.title || ''}\n时间：${new Date(r.submitted_at).toLocaleString('zh-CN')}\n\n${r.note}\n`;
   }).join('\n---\n\n');
   const filename = `export_t${tid}_u${req.user.id}_${Date.now()}.md`;
-  const buf = Buffer.from(`# ${task.name} · 我的打卡心得\n\n${body}`, 'utf8');
-  try {
-    const url = await storage.put(buf, filename, 'text/markdown; charset=utf-8', filename);
-    res.json({ url, filename });
-  } catch (e) {
-    console.error('[export]', e && e.message || e);
-    res.status(500).json({ err: 'export failed' });
-  }
+  const buffer = Buffer.from(`# ${task.name} · 我的打卡心得\n\n${body}`, 'utf8');
+  res.json({
+    filename,
+    mime_type: 'text/markdown; charset=utf-8',
+    content_base64: buffer.toString('base64')
+  });
 });
 
-app.get('/', (_req, res) => res.json({ ok: true, name: '打卡监督 API' }));
+app.get('/', (_req, res) => res.send(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>为一自在</title></head>
+<body style="margin:0;font-family:sans-serif;background:#f5f5f5;">
+  <div style="text-align:center;padding:60px 20px;">
+    <h2>为一自在</h2>
+    <p>服务运行中</p>
+  </div>
+  <footer style="text-align:center;padding:20px;color:#999;font-size:12px;">
+    <a href="https://beian.miit.gov.cn/" target="_blank" style="color:#999;text-decoration:none;">粤ICP备2026056836号</a>
+  </footer>
+</body>
+</html>`));
 
 (async () => {
   try {

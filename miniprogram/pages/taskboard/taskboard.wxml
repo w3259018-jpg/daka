@@ -1,0 +1,76 @@
+<view class="page taskboard-page">
+  <view class="page-header row between">
+    <view>
+      <view class="hello">计划</view>
+      <view class="sub">按角色整理你的打卡任务</view>
+    </view>
+    <view class="tag">{{totalCount}} 个任务</view>
+  </view>
+
+  <view class="card action-card">
+    <view class="section-title">快速开始</view>
+    <view class="quick-actions">
+      <view class="btn" bindtap="create">创建任务</view>
+      <view class="btn btn-line" bindtap="toggleJoin">{{showJoin ? '收起邀请码' : '邀请码加入'}}</view>
+    </view>
+    <view wx:if="{{showJoin}}" class="join-box">
+      <input class="input" placeholder="输入管理员分享的邀请码" value="{{joinCode}}" bindinput="onInput" data-k="joinCode" />
+      <view class="btn" bindtap="join">下一步</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row between">
+      <view>
+        <view class="section-title">我参与的计划</view>
+        <view class="muted">仅展示你的个人进度</view>
+      </view>
+      <view class="tag">{{participating.length}} 个</view>
+    </view>
+
+    <view wx:if="{{participating.length}}">
+      <view wx:for="{{participating}}" wx:key="id" class="plan-card" bindtap="open" data-id="{{item.id}}">
+        <view class="row between">
+          <view class="task-name">{{item.name}}</view>
+          <view class="tag tag-grey">{{item.roleText}}</view>
+        </view>
+        <view class="muted">{{item.dateText}}</view>
+        <view class="muted">当前：{{item.currentTitle}}</view>
+        <view class="row between progress-line">
+          <view class="progress-track">
+            <view class="progress-fill" style="width:{{item.progressPercent}}%;"></view>
+          </view>
+          <view class="progress-text">{{item.progressText}}</view>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="empty-text">还没有参与中的计划，可通过邀请码加入。</view>
+  </view>
+
+  <view class="card">
+    <view class="row between">
+      <view>
+        <view class="section-title">我管理的计划</view>
+        <view class="muted">进入详情使用管理员看板</view>
+      </view>
+      <view class="tag">{{managed.length}} 个</view>
+    </view>
+
+    <view wx:if="{{managed.length}}">
+      <view wx:for="{{managed}}" wx:key="id" class="plan-card admin-plan" bindtap="open" data-id="{{item.id}}">
+        <view class="row between">
+          <view class="task-name">{{item.name}}</view>
+          <view class="tag">管理员</view>
+        </view>
+        <view class="muted">{{item.dateText}}</view>
+        <view class="muted">本人进度：{{item.progressText}}</view>
+        <view class="row between plan-footer">
+          <view class="muted">发布打卡、成员完成情况和导出在详情页处理</view>
+          <view class="btn btn-mini">查看</view>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="empty-text">你还没有管理的计划，可以创建一个新任务。</view>
+  </view>
+</view>
+<privacy-popup class="privacy-popup" />

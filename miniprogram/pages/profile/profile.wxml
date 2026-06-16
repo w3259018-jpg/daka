@@ -1,54 +1,59 @@
-<view class="card row" style="padding:36rpx 32rpx;">
-  <open-data type="userAvatarUrl" class="avatar avatar-lg"></open-data>
-  <view style="flex:1; margin-left:20rpx;">
-    <open-data type="userNickName" class="nick-input"></open-data>
-    <view class="muted" style="margin-top:6rpx;">已加入 {{tasks.length}} 个任务</view>
-  </view>
-</view>
-
-<view class="card" wx:if="{{tasks.length}}">
-  <picker mode="selector" range="{{names}}" value="{{idx}}" bindchange="pick">
-    <view class="input">{{tasks[idx].name || '请选择任务'}} ▾</view>
-  </picker>
-  <view class="row" style="gap:12rpx; margin-top:12rpx;">
-    <picker mode="date" value="{{startDate}}" bindchange="pickStart" style="flex:1;">
-      <view class="input" style="margin:0;">起：{{startDate || '不限'}}</view>
-    </picker>
-    <picker mode="date" value="{{endDate}}" bindchange="pickEnd" style="flex:1;">
-      <view class="input" style="margin:0;">止：{{endDate || '不限'}}</view>
-    </picker>
-    <view class="muted" bindtap="clearDate">清除</view>
-  </view>
-  <view class="row between" style="margin-top:18rpx;">
-    <view class="muted">勾选记录后导出</view>
-    <view class="btn btn-mini" bindtap="exportNotes">导出选中</view>
-  </view>
-</view>
-
-<view class="card" wx:if="{{tasks.length}}">
-  <view class="title">我的打卡记录（{{filtered.length}}）</view>
-  <view wx:for="{{filtered}}" wx:key="id" class="row" style="padding:20rpx 0; border-top:1rpx solid #E2F5F0;">
-    <checkbox checked="{{selected[item.id]}}" bindtap="toggle" data-id="{{item.id}}" style="margin-right:12rpx;" color="#0D9488" />
-    <view style="flex:1;" bindtap="goPost" data-id="{{item.post_id}}">
-      <view style="font-weight:500;">{{item.item_title}}</view>
-      <view class="muted" style="margin:8rpx 0;">{{item.date}}</view>
-      <view class="sub" style="white-space:pre-wrap; line-height:1.7;">{{item.note}}</view>
-      <view class="muted" style="margin-top:8rpx;">♥ {{item.likes}} · 💬 {{item.comments}}</view>
+<view class="page profile-page">
+  <view class="card hero-card row profile-hero">
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <image wx:if="{{user.avatar}}" class="avatar avatar-lg" src="{{user.avatar}}" mode="aspectFill"></image>
+      <view wx:else class="avatar avatar-lg center avatar-empty">+</view>
+    </button>
+    <view class="profile-main">
+      <input
+        type="nickname"
+        class="nick-input"
+        value="{{user.nickname}}"
+        placeholder="点击设置昵称"
+        placeholder-style="color:rgba(255,255,255,.72);"
+        bindchange="onNicknameChange"
+        bindblur="onNicknameChange" />
+      <view class="white-muted">账号资料仅用于你参与的打卡任务。</view>
     </view>
   </view>
-  <view wx:if="{{!filtered.length}}" class="muted" style="text-align:center; padding:24rpx 0;">暂无记录</view>
-</view>
 
-<view class="card" wx:if="{{!tasks.length}}"><view class="muted" style="text-align:center; padding:24rpx 0;">先去「任务」加入或创建任务</view></view>
-
-<view class="card" style="margin-top:20rpx;">
-  <view class="title" style="margin-bottom:20rpx;">关于</view>
-  <view class="row between" style="padding:20rpx 0; border-top:1rpx solid #E2F5F0;" bindtap="goPrivacy">
-    <view>隐私政策</view>
-    <text class="muted">›</text>
+  <view class="card">
+    <view class="section-title">我的概览</view>
+    <view class="stat-grid profile-stats">
+      <view class="stat-item">
+        <view class="stat-num">{{overview.tasks}}</view>
+        <view class="muted">参与任务</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-num">{{overview.completed}}</view>
+        <view class="muted">本人完成</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-num">{{overview.managed}}</view>
+        <view class="muted">管理任务</view>
+      </view>
+    </view>
+    <view class="btn btn-line records-entry" bindtap="goRecords">查看我的记录</view>
   </view>
-  <view class="row between" style="padding:20rpx 0; border-top:1rpx solid #E2F5F0;" bindtap="goAgreement">
-    <view>用户协议</view>
-    <text class="muted">›</text>
+
+  <view class="card">
+    <view class="section-title">隐私边界</view>
+    <view class="privacy-note">
+      你的打卡记录仅你本人和对应任务管理员可查看，同任务其他成员不可查看你的完成状态、心得或个人记录。
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title settings-title">设置</view>
+    <view class="setting-row" bindtap="goPrivacy">
+      <view>隐私政策</view>
+      <text class="muted">查看</text>
+    </view>
+    <view class="divider"></view>
+    <view class="setting-row" bindtap="goAgreement">
+      <view>用户协议</view>
+      <text class="muted">查看</text>
+    </view>
   </view>
 </view>
+<privacy-popup class="privacy-popup" />

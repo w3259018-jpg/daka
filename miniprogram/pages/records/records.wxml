@@ -1,0 +1,60 @@
+<view class="page records-page">
+  <view class="page-header row between">
+    <view>
+      <view class="hello">记录</view>
+      <view class="sub">只查看和导出你自己的打卡记录</view>
+    </view>
+    <view class="icon-badge center">私</view>
+  </view>
+
+  <view class="card hero-card">
+    <view class="white-muted">本人累计完成</view>
+    <view class="record-total">{{overview.records}}</view>
+    <view class="white-muted">来自 {{overview.tasks}} 个任务，不展示点赞、评论和其他成员动态。</view>
+  </view>
+
+  <view class="card" wx:if="{{tasks.length}}">
+    <view class="section-title">记录筛选</view>
+    <picker mode="selector" range="{{names}}" value="{{idx}}" bindchange="pickTask">
+      <view class="input">{{tasks[idx].name || '请选择任务'}}</view>
+    </picker>
+    <view class="date-row">
+      <picker mode="date" value="{{startDate}}" bindchange="pickStart">
+        <view class="input date-input">起：{{startDate || '不限'}}</view>
+      </picker>
+      <picker mode="date" value="{{endDate}}" bindchange="pickEnd">
+        <view class="input date-input">止：{{endDate || '不限'}}</view>
+      </picker>
+    </view>
+    <view class="row between filter-actions">
+      <view class="muted" bindtap="clearDate">清除日期</view>
+      <view class="btn btn-mini" bindtap="exportNotes">
+        {{overview.selected ? '导出选中' : '导出当前任务'}}
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{tasks.length}}">
+    <view class="row between">
+      <view>
+        <view class="section-title">我的打卡记录</view>
+        <view class="muted">已筛选 {{filtered.length}} 条，已选 {{overview.selected}} 条</view>
+      </view>
+    </view>
+
+    <view wx:for="{{filtered}}" wx:key="id" class="record-card">
+      <checkbox checked="{{selected[item.id]}}" bindtap="toggle" data-id="{{item.id}}" color="#E98243" />
+      <view class="record-main">
+        <view class="task-name">{{item.item_title}}</view>
+        <view class="muted">{{item.date}}</view>
+        <view class="record-note">{{item.note}}</view>
+      </view>
+    </view>
+    <view wx:if="{{!filtered.length}}" class="empty-text">当前筛选条件下暂无记录。</view>
+  </view>
+
+  <view class="card" wx:else>
+    <view class="empty-text">还没有加入任务。加入或创建任务后，你的打卡记录会出现在这里。</view>
+  </view>
+</view>
+<privacy-popup class="privacy-popup" />

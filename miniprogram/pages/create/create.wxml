@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="page-header">
+    <view class="hello">创建任务</view>
+    <view class="sub" style="margin-top:8rpx;">新建打卡计划，开启坚持之旅</view>
+  </view>
+
+  <view class="card" style="padding:44rpx 36rpx;">
+    <view class="sub" style="margin-bottom:14rpx;">任务名称</view>
+    <input class="input" placeholder="例如：21天早起打卡" value="{{name}}" bindinput="onInput" data-k="name" />
+
+    <view class="sub" style="margin-top:32rpx; margin-bottom:14rpx;">开始日期</view>
+    <picker mode="date" value="{{startDate}}" bindchange="pickStart">
+      <view class="input">{{startDate || '点击选择'}}</view>
+    </picker>
+
+    <view class="sub" style="margin-top:32rpx; margin-bottom:14rpx;">结束日期</view>
+    <picker mode="date" value="{{endDate}}" bindchange="pickEnd">
+      <view class="input">{{endDate || '点击选择'}}</view>
+    </picker>
+
+    <button class="btn" style="margin-top:52rpx;" bindtap="createTask">创建任务</button>
+  </view>
+</view>

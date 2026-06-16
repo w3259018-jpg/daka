@@ -1,63 +1,159 @@
-<view wx:if="{{task}}">
-  <view class="card">
-    <view class="title">{{task.name}}<text class="tag">{{task.is_creator ? '创建者' : task.is_admin ? '管理员' : '成员'}}</text></view>
-    <view class="muted" style="margin-top:8rpx;">时间：{{task.start_date || '不限'}} ~ {{task.end_date || '不限'}}</view>
-    <view class="muted" style="margin-top:6rpx;" bindtap="copyCode">邀请码：{{task.invite_code}}（点击复制）</view>
-    <view class="row" style="margin-top:24rpx; flex-wrap:wrap; gap:16rpx;">
-      <button class="btn btn-line btn-mini" open-type="share">分享好友</button>
-      <view class="btn btn-line btn-mini" bindtap="goRank">排行榜</view>
-      <view class="btn btn-line btn-mini" bindtap="goForum">论坛</view>
-      <view class="btn btn-line btn-mini" bindtap="goProfile">我的记录</view>
+<view class="page task-detail-page" wx:if="{{task}}">
+  <view class="card hero-card">
+    <view class="row between">
+      <view class="hero-main">
+        <view class="task-title">{{task.name}}</view>
+        <view class="white-muted">{{task.dateText}}</view>
+      </view>
+      <view class="hero-role">{{task.roleText}}</view>
+    </view>
+    <view class="hero-stats">
+      <view>
+        <view class="hero-num">{{myStats.completed}}</view>
+        <view class="white-muted">我已完成</view>
+      </view>
+      <view>
+        <view class="hero-num">{{myStats.total}}</view>
+        <view class="white-muted">打卡项</view>
+      </view>
+      <view>
+        <view class="hero-num">{{myStats.percent}}%</view>
+        <view class="white-muted">本人进度</view>
+      </view>
     </view>
   </view>
 
   <view class="card">
     <view class="row between">
-      <view class="title">打卡内容（{{task.items.length}}）</view>
-      <view wx:if="{{task.is_admin}}" class="btn btn-mini" bindtap="toggleAdd">{{showAdd ? '收起' : '+ 发布'}}</view>
-    </view>
-
-    <view wx:if="{{showAdd}}" style="margin-top:18rpx;">
-      <input class="input" placeholder="打卡标题" value="{{title}}" bindinput="onInput" data-k="title" />
-      <picker range="{{mediaTypes}}" value="{{mtIdx}}" bindchange="pickMt">
-        <view class="input">类型：{{mediaTypes[mtIdx] === 'audio' ? '音频' : '视频'}} ▾</view>
-      </picker>
-      <view class="row" style="gap:16rpx;">
-        <view class="btn btn-line btn-mini" bindtap="chooseMedia">选择文件</view>
-        <view class="muted" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{mediaUrl || '未选择'}}</view>
+      <view>
+        <view class="section-title">我的打卡进度</view>
+        <view class="muted">仅你本人和本任务管理员可查看你的记录。</view>
       </view>
-      <button class="btn" style="margin-top:18rpx;" bindtap="publish">发布</button>
+      <view class="tag">{{myStats.completed}}/{{myStats.total}}</view>
     </view>
-
-    <view wx:for="{{task.items}}" wx:key="id" class="row between" style="padding:22rpx 0; border-top:1rpx solid #E2F5F0;" bindtap="openItem" data-id="{{item.id}}">
-      <view style="flex:1;">
-        <view style="font-weight:500;">{{item.title}} <text class="tag {{item.media_type==='audio'?'tag-grey':''}}">{{item.media_type==='audio'?'音频':'视频'}}</text></view>
-        <view class="muted" style="margin-top:6rpx;">{{item.done ? '已完成 ✓' : '未打卡'}}</view>
+    <view class="progress-track">
+      <view class="progress-fill" style="width:{{myStats.percent}}%;"></view>
+    </view>
+    <view wx:if="{{currentItem}}" class="current-item" bindtap="openItem" data-id="{{currentItem.id}}">
+      <view class="icon-badge center">打</view>
+      <view class="current-main">
+        <view class="task-name">{{currentItem.title}}</view>
+        <view class="muted">{{currentItem.done ? '已完成，可查看记录' : '当前待完成'}}</view>
       </view>
-      <view class="muted">›</view>
+      <view class="btn btn-mini">{{currentItem.done ? '查看' : '去打卡'}}</view>
     </view>
-    <view class="muted" wx:if="{{!task.items.length}}" style="text-align:center; padding:24rpx 0;">暂无打卡内容{{task.is_admin ? '，点击 + 发布' : '，等待管理员发布'}}</view>
   </view>
 
   <view class="card">
-    <view class="title">成员（{{task.members.length}}）</view>
-    <view wx:for="{{task.members}}" wx:key="user_id" class="row" style="padding:18rpx 0; border-top:1rpx solid #E2F5F0;">
-      <view class="avatar"></view>
-      <view style="flex:1;">
-        <view style="font-weight:500;">{{item.real_name || item.nickname}}<text class="tag {{item.role==='member'?'tag-grey':''}}">{{item.role==='creator'?'创建者':item.role==='admin'?'管理员':'成员'}}</text></view>
-        <view class="muted" style="margin-top:4rpx;">{{item.gender || '-'}} · {{item.age || '-'}}岁</view>
+    <view class="row between">
+      <view>
+        <view class="section-title">打卡内容</view>
+        <view class="muted">按管理员发布内容完成</view>
       </view>
-      <block wx:if="{{task.is_creator && item.role!=='creator'}}">
-        <view wx:if="{{item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx;" catchtap="setRole" data-uid="{{item.user_id}}" data-role="admin">设为管理员</view>
-        <view wx:if="{{item.role==='admin'}}" class="btn btn-line btn-mini" style="margin-left:8rpx;" catchtap="setRole" data-uid="{{item.user_id}}" data-role="member">撤销管理员</view>
-        <view wx:if="{{item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx; color:#EF4444; border-color:#EF4444;" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
-      </block>
-      <view wx:elif="{{task.is_admin && !task.is_creator && item.role==='member'}}" class="btn btn-line btn-mini" style="margin-left:8rpx; color:#EF4444; border-color:#EF4444;" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
+      <view class="btn btn-line btn-mini" bindtap="goRecords">我的记录</view>
+    </view>
+
+    <view wx:for="{{items}}" wx:key="id" class="item-row" bindtap="openItem" data-id="{{item.id}}">
+      <view class="icon-badge center">{{item.media_type === 'audio' ? '音' : '视'}}</view>
+      <view class="current-main">
+        <view class="task-name">{{item.title}}<text class="tag tag-grey">{{item.mediaText}}</text></view>
+        <view class="muted">{{item.statusText}}</view>
+      </view>
+      <view class="muted">查看</view>
+    </view>
+    <view wx:if="{{!items.length}}" class="empty-text">
+      {{task.is_admin ? '暂无打卡内容，可在管理员看板发布。' : '暂无打卡内容，请等待管理员发布。'}}
     </view>
   </view>
 
-  <view class="card" wx:if="{{task.is_creator}}">
-    <view class="btn btn-line" style="color:#EF4444; border-color:#EF4444;" bindtap="dissolve">解散任务</view>
+  <view class="card admin-card" wx:if="{{task.is_admin}}">
+    <view class="row between" bindtap="toggleManage">
+      <view>
+        <view class="section-title">管理员看板</view>
+        <view class="muted">仅管理员可见成员完成情况</view>
+      </view>
+      <view class="muted">{{showManage ? '收起' : '展开'}}</view>
+    </view>
+
+    <view wx:if="{{showManage}}">
+      <view class="admin-stats" wx:if="{{adminSummary}}">
+        <view class="stat-item">
+          <view class="stat-num">{{adminSummary.member_count}}</view>
+          <view class="muted">成员</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-num">{{adminSummary.completed_count}}</view>
+          <view class="muted">当前已完成</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-num">{{adminSummary.incomplete_count}}</view>
+          <view class="muted">当前未完成</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-num">{{adminSummary.completion_rate}}%</view>
+          <view class="muted">完成率</view>
+        </view>
+      </view>
+
+      <view class="admin-actions">
+        <view class="btn" bindtap="toggleAdd">{{showAdd ? '收起发布' : '发布打卡'}}</view>
+        <button class="btn btn-line share-btn" open-type="share">分享邀请</button>
+        <view class="btn btn-line" bindtap="copyCode">复制邀请码</view>
+        <view class="btn btn-line" bindtap="exportAdminData">导出数据</view>
+      </view>
+
+      <view wx:if="{{showAdd}}" class="publish-box">
+        <input class="input" placeholder="打卡标题" value="{{title}}" bindinput="onInput" data-k="title" />
+        <picker range="{{mediaLabels}}" value="{{mtIdx}}" bindchange="pickMt">
+          <view class="input">类型：{{mediaLabels[mtIdx]}}</view>
+        </picker>
+        <view class="row gap-sm">
+          <view class="btn btn-line btn-mini" bindtap="chooseMedia">选择文件</view>
+          <view class="muted media-path">{{mediaUrl || '未选择文件'}}</view>
+        </view>
+        <view class="btn publish-btn" bindtap="publish">发布打卡内容</view>
+      </view>
+
+      <view class="divider"></view>
+      <view class="section-title">成员状态</view>
+      <view wx:for="{{members}}" wx:key="user_id" class="member-row">
+        <view class="member-avatar center">{{item.initial}}</view>
+        <view class="member-main" catchtap="openMemberRecords" data-uid="{{item.user_id}}" data-name="{{item.displayName}}">
+          <view class="task-name">{{item.displayName}}<text class="tag {{item.current_done ? '' : 'tag-grey'}}">{{item.statusText}}</text></view>
+          <view class="muted">{{item.roleText}} · 累计完成 {{item.completed_count}}</view>
+        </view>
+        <block wx:if="{{task.is_creator && item.role !== 'creator'}}">
+          <view wx:if="{{item.role === 'member'}}" class="btn btn-line btn-mini" catchtap="setRole" data-uid="{{item.user_id}}" data-role="admin">设管理</view>
+          <view wx:if="{{item.role === 'admin'}}" class="btn btn-line btn-mini" catchtap="setRole" data-uid="{{item.user_id}}" data-role="member">撤销</view>
+          <view wx:if="{{item.role === 'member'}}" class="btn btn-line btn-mini btn-danger" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
+        </block>
+        <view wx:elif="{{!task.is_creator && item.role === 'member'}}" class="btn btn-line btn-mini btn-danger" catchtap="removeMember" data-uid="{{item.user_id}}">移除</view>
+      </view>
+
+      <view wx:if="{{task.is_creator}}" class="btn btn-line btn-danger dissolve-btn" bindtap="dissolve">解散任务</view>
+    </view>
+  </view>
+
+  <view class="bottom-space"></view>
+  <view class="fixed-action btn" bindtap="openToday">今日打卡</view>
+
+  <view wx:if="{{showMemberRecords}}" class="modal-mask" catchtap="closeMemberRecords">
+    <view class="record-modal" catchtap="noop">
+      <view class="row between">
+        <view>
+          <view class="section-title">{{selectedMemberName}}的记录</view>
+          <view class="muted">仅本任务管理员可见</view>
+        </view>
+        <view class="btn btn-line btn-mini" bindtap="closeMemberRecords">关闭</view>
+      </view>
+      <view wx:for="{{memberRecords}}" wx:key="id" class="record-row">
+        <view class="task-name">{{item.item_title}}</view>
+        <view class="muted">{{item.submittedText}}</view>
+        <view class="record-note">{{item.note}}</view>
+      </view>
+      <view wx:if="{{!memberRecords.length}}" class="empty-text">该成员暂无提交记录。</view>
+    </view>
   </view>
 </view>
-<view class="muted" wx:else style="padding:60rpx; text-align:center;">加载中…</view>
+<view class="muted" wx:else style="padding:60rpx; text-align:center;">加载中</view>
+<privacy-popup class="privacy-popup" />

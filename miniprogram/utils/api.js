@@ -83,4 +83,18 @@ const fullUrl = (u) => (u && u.startsWith('http')) ? u : (app.globalData.apiBase
 // 安全 await：把异常吞掉返回 fallback，避免页面里大量 try/catch 模板代码
 const safe = (p, fallback) => p.then(v => (v == null ? fallback : v), () => fallback);
 
-module.exports = { request, ensureLogin, upload, toast, fullUrl, safe };
+// 客户端内容安全预检：把文本提交给后端 /api/sec-check，由后端调用微信 msg_sec_check 判断。
+// 网络/服务异常一律放行（safe=true），最终保护由真正的提交接口再做一次 checkText 兜底。
+// 返回 { safe: boolean, reason?: string }
+const secCheck = async (text) => {
+  const content = (text || '').trim();
+  if (!content) return { safe: true };
+  try {
+    const r = await request('/api/sec-check', { method: 'POST', data: { content }, _silent: true });
+    return { safe: r && r.safe !== false, reason: (r && r.reason) || '' };
+  } catch (_) {
+    return { safe: true };
+  }
+};
+
+module.exports = { request, ensureLogin, upload, toast, fullUrl, safe, secCheck };

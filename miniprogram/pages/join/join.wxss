@@ -1,1 +1,13 @@
+.privacy-note {
+  margin-bottom: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 22rpx;
+  background: #FBEFE4;
+  color: #E98243;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
 
+.join-btn {
+  margin-top: 20rpx;
+}

@@ -1,87 +1,91 @@
-const { request, ensureLogin, toast, fullUrl, safe } = require('../../utils/api');
+const { request, ensureLogin, toast, fullUrl, safe, upload } = require('../../utils/api');
 
 Page({
-  data: { user: {}, tasks: [], names: [], idx: 0, taskId: 0,
-          startDate: '', endDate: '', records: [], filtered: [], selected: {} },
+  data: {
+    user: {},
+    tasks: [],
+    overview: { tasks: 0, completed: 0, managed: 0 }
+  },
 
   async onShow() {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) tabBar.setData({ selected: 3 });
+
     await ensureLogin();
+    await this.load();
+  },
+
+  async load() {
     const [user, tasks] = await Promise.all([
       safe(request('/api/me'), this.data.user || {}),
       safe(request('/api/tasks'), [])
     ]);
-    const cur = wx.getStorageSync('curTaskId');
-    let idx = cur ? Math.max(0, tasks.findIndex(t => t.id === cur)) : 0;
-    if (idx < 0) idx = 0;
-    this.setData({ user, tasks, names: tasks.map(t => t.name), idx });
-    if (tasks.length) this.load(tasks[idx].id);
-  },
-
-  pick(e) { const idx = +e.detail.value; this.setData({ idx }); this.load(this.data.tasks[idx].id); },
-  pickStart(e) { this.setData({ startDate: e.detail.value }, () => this.applyFilter()); },
-  pickEnd(e)   { this.setData({ endDate: e.detail.value }, () => this.applyFilter()); },
-  clearDate()  { this.setData({ startDate: '', endDate: '' }, () => this.applyFilter()); },
-
-  async load(taskId) {
-    wx.setStorageSync('curTaskId', taskId);
-    const records = await safe(request(`/api/tasks/${taskId}/my-records`), []);
-    this.setData({ taskId, records, selected: {} });
-    this.applyFilter();
-  },
-
-  applyFilter() {
-    const { records, startDate, endDate } = this.data;
-    const inRange = (ms) => {
-      const d = new Date(ms).toISOString().slice(0, 10);
-      if (startDate && d < startDate) return false;
-      if (endDate && d > endDate) return false;
-      return true;
-    };
-    const filtered = records.filter(r => inRange(r.submitted_at)).map(r => ({
-      ...r, date: new Date(r.submitted_at).toLocaleString('zh-CN')
-    }));
-    this.setData({ filtered });
-  },
-
-  toggle(e) {
-    const id = +e.currentTarget.dataset.id;
-    const selected = { ...this.data.selected, [id]: !this.data.selected[id] };
-    this.setData({ selected });
-  },
-
-  async exportNotes() {
-    if (!this.data.taskId) return;
-    const ids = Object.keys(this.data.selected).filter(k => this.data.selected[k]).map(Number);
-    wx.showLoading({ title: '生成中' });
-    try {
-      const r = await request(`/api/tasks/${this.data.taskId}/export`, { method: 'POST', data: { record_ids: ids } });
-      wx.hideLoading();
-      this.handleExport(fullUrl(r.url), r.filename);
-    } catch (e) { wx.hideLoading(); /* toast 已提示 */ }
-  },
-
-  handleExport(url, filename) {
-    wx.showActionSheet({
-      itemList: ['保存到本地', '复制链接（可粘贴到微信笔记）'],
-      success: ({ tapIndex }) => {
-        if (tapIndex === 0) {
-          wx.downloadFile({ url, success: r => {
-            if (r.statusCode !== 200) return toast('下载失败');
-            wx.saveFile({ tempFilePath: r.tempFilePath,
-              success: s => { toast('已保存：' + s.savedFilePath, 'success');
-                wx.openDocument({ filePath: s.savedFilePath, showMenu: true, fail: () => {} }); },
-              fail: () => toast('保存失败')
-            });
-          }, fail: () => toast('下载失败') });
-        } else {
-          wx.setClipboardData({ data: url, success: () => toast('链接已复制', 'success') });
-        }
+    const app = getApp();
+    const userWithUrl = { ...user, avatar: user && user.avatar ? fullUrl(user.avatar) : '' };
+    this.setData({
+      user: userWithUrl,
+      tasks,
+      overview: {
+        tasks: tasks.length,
+        completed: tasks.reduce((sum, task) => sum + Number(task.my_completed_count || 0), 0),
+        managed: tasks.filter(task => task.role === 'admin').length
       }
     });
+    if (app && app.globalData) {
+      app.globalData.user = { ...(app.globalData.user || {}), ...user };
+    }
   },
 
-  goPost(e) { const id = e.currentTarget.dataset.id; if (id) wx.navigateTo({ url: '/pages/post/post?id=' + id }); },
+  async onChooseAvatar(e) {
+    const tmp = e && e.detail && e.detail.avatarUrl;
+    if (!tmp) return;
 
-  goPrivacy() { wx.navigateTo({ url: '/pages/privacy/privacy' }); },
-  goAgreement() { wx.navigateTo({ url: '/pages/agreement/agreement' }); }
+    this.setData({ 'user.avatar': tmp });
+    wx.showLoading({ title: '上传中', mask: true });
+    try {
+      const result = await upload(tmp);
+      const remoteUrl = result && (result.url || result.path);
+      if (!remoteUrl) throw new Error('upload no url');
+      await request('/api/me/profile', { method: 'PUT', data: { avatar: remoteUrl } });
+      const fullAvatar = fullUrl(remoteUrl);
+      this.setData({ 'user.avatar': fullAvatar });
+      const app = getApp();
+      if (app && app.globalData) {
+        app.globalData.user = { ...(app.globalData.user || {}), avatar: remoteUrl };
+      }
+      wx.hideLoading();
+      toast('头像已更新', 'success');
+    } catch (_) {
+      wx.hideLoading();
+      toast('头像上传失败');
+    }
+  },
+
+  async onNicknameChange(e) {
+    const val = ((e && e.detail && e.detail.value) || '').trim();
+    if (!val || val === this.data.user.nickname) return;
+
+    try {
+      const user = await request('/api/me/profile', { method: 'PUT', data: { nickname: val } });
+      this.setData({ 'user.nickname': user.nickname });
+      const app = getApp();
+      if (app && app.globalData) {
+        app.globalData.user = { ...(app.globalData.user || {}), nickname: user.nickname };
+      }
+    } catch (_) {
+      // request() 已展示错误提示。
+    }
+  },
+
+  goRecords() {
+    wx.switchTab({ url: '/pages/records/records' });
+  },
+
+  goPrivacy() {
+    wx.navigateTo({ url: '/pages/privacy/privacy' });
+  },
+
+  goAgreement() {
+    wx.navigateTo({ url: '/pages/agreement/agreement' });
+  }
 });

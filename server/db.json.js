@@ -4,15 +4,27 @@ const fs = require('fs');
 const path = require('path');
 
 const FILE = path.join(__dirname, 'data.json');
-const TABLES = ['users', 'tasks', 'task_members', 'checkin_items', 'checkin_records',
-                'posts', 'post_comments', 'post_likes'];
+const TABLES = ['users', 'tasks', 'task_members', 'checkin_items', 'checkin_records'];
 
-const data = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { seq: {} };
-for (const t of TABLES) if (!Array.isArray(data[t])) data[t] = [];
-if (!data.seq) data.seq = {};
+const persisted = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { seq: {} };
+if (!persisted.seq || typeof persisted.seq !== 'object') persisted.seq = {};
+
+// Keep legacy keys on disk for archival, but expose only active tables at runtime.
+const data = { seq: {} };
+for (const t of TABLES) {
+  if (!Array.isArray(persisted[t])) persisted[t] = [];
+  data[t] = persisted[t];
+  data.seq[t] = persisted.seq[t] || 0;
+}
 
 let timer = null;
-const save = () => { clearTimeout(timer); timer = setTimeout(() => fs.writeFileSync(FILE, JSON.stringify(data, null, 2)), 50); };
+const save = () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const output = { ...persisted, ...data, seq: { ...persisted.seq, ...data.seq } };
+    fs.writeFileSync(FILE, JSON.stringify(output, null, 2));
+  }, 50);
+};
 
 const nextId = (t) => (data.seq[t] = (data.seq[t] || 0) + 1);
 

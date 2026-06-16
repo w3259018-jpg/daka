@@ -1,0 +1,76 @@
+.taskboard-page .page-header {
+  padding-top: 24rpx;
+}
+
+.action-card {
+  margin-top: 8rpx;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.join-box {
+  margin-top: 22rpx;
+}
+
+.plan-card {
+  margin-top: 22rpx;
+  padding: 24rpx;
+  border-radius: 28rpx;
+  background: #FFF8F0;
+  border: 1rpx solid #F0E7DC;
+}
+
+.admin-plan {
+  background: #FBEFE4;
+}
+
+.task-name {
+  color: #30261E;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.progress-line {
+  margin-top: 18rpx;
+}
+
+.progress-track {
+  flex: 1;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: #F0E7DC;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  min-width: 10rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #F2B36D 0%, #E98243 100%);
+}
+
+.progress-text {
+  width: 88rpx;
+  text-align: right;
+  color: #E98243;
+  font-weight: 800;
+  font-size: 26rpx;
+}
+
+.plan-footer {
+  margin-top: 18rpx;
+  gap: 16rpx;
+}
+
+.empty-text {
+  margin-top: 22rpx;
+  color: #988878;
+  font-size: 26rpx;
+  line-height: 1.7;
+}

@@ -1,11 +1,11 @@
 .container {
   padding: 30rpx;
-  background-color: #f5f5f5;
+  background-color: #FCFAF6;
   min-height: 100vh;
 }
 
 .header {
-  background-color: #fff;
+  background-color: #FFFDF9;
   padding: 40rpx 30rpx;
   border-radius: 16rpx;
   margin-bottom: 30rpx;
@@ -16,19 +16,19 @@
   display: block;
   font-size: 40rpx;
   font-weight: bold;
-  color: #333;
+  color: #30261E;
   margin-bottom: 20rpx;
 }
 
 .date {
   display: block;
   font-size: 24rpx;
-  color: #999;
+  color: #988878;
   margin-top: 10rpx;
 }
 
 .content {
-  background-color: #fff;
+  background-color: #FFFDF9;
   padding: 40rpx 30rpx;
   border-radius: 16rpx;
 }
@@ -37,7 +37,7 @@
   display: block;
   font-size: 32rpx;
   font-weight: bold;
-  color: #0D9488;
+  color: #E98243;
   margin-top: 40rpx;
   margin-bottom: 20rpx;
 }
@@ -50,7 +50,7 @@
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: #666;
+  color: #988878;
   margin-top: 30rpx;
   margin-bottom: 15rpx;
 }
@@ -58,7 +58,7 @@
 .text {
   display: block;
   font-size: 28rpx;
-  color: #666;
+  color: #988878;
   line-height: 1.8;
   margin-bottom: 15rpx;
 }

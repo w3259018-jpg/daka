@@ -1,10 +1,10 @@
 {
   "miniprogramRoot": "./",
   "projectname": "daka",
-  "description": "打卡监督小程序",
-  "appid": "wxf739388435fa87ee",
+  "description": "为一自在",
+  "appid": "wx335d862226165636",
   "setting": {
-    "urlCheck": false,
+    "urlCheck": true,
     "es6": true,
     "enhance": true,
     "postcss": true,

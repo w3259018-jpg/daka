@@ -1,0 +1,66 @@
+.records-page .page-header {
+  padding-top: 24rpx;
+}
+
+.record-total {
+  margin: 8rpx 0;
+  color: #fff;
+  font-size: 86rpx;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14rpx;
+  margin-top: 12rpx;
+}
+
+.date-input {
+  margin: 0;
+}
+
+.filter-actions {
+  margin-top: 18rpx;
+}
+
+.record-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F0E7DC;
+}
+
+.record-card:last-child {
+  border-bottom: 0;
+}
+
+.record-main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 14rpx;
+}
+
+.task-name {
+  color: #30261E;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.record-note {
+  margin-top: 12rpx;
+  color: #30261E;
+  font-size: 26rpx;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.empty-text {
+  color: #988878;
+  font-size: 26rpx;
+  line-height: 1.7;
+  text-align: center;
+  padding: 28rpx 0;
+}
