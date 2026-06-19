@@ -6,10 +6,12 @@ App({
     env,
     token: '',
     user: null,
+    guestMode: false,
     loginReady: null
   },
 
   onLaunch() {
+    this.globalData.guestMode = !!wx.getStorageSync('guestMode');
     const t = wx.getStorageSync('token');
     const u = wx.getStorageSync('user');
     if (t) {

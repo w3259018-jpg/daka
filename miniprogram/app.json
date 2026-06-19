@@ -33,7 +33,8 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
   "usingComponents": {
-    "privacy-popup": "/components/privacy-popup/privacy-popup"
+    "privacy-popup": "/components/privacy-popup/privacy-popup",
+    "login-popup": "/components/login-popup/login-popup"
   },
   "__usePrivacyCheck__": true
 }
