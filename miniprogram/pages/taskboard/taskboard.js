@@ -1,4 +1,5 @@
 const { request, ensureLogin, safe } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 const formatDateRange = (task) => {
   const start = task.start_date || '不限';
@@ -23,12 +24,15 @@ const normalizeTask = (task) => {
 };
 
 Page({
+  ...profilePopupHandlers,
+
   data: {
     participating: [],
     managed: [],
     totalCount: 0,
     showJoin: false,
-    joinCode: ''
+    joinCode: '',
+    showLoginPopup: false
   },
 
   async onShow() {
@@ -83,6 +87,7 @@ Page({
   },
 
   create() {
+    if (!requireProfile(this)) return;
     wx.navigateTo({ url: '/pages/create/create' });
   }
 });

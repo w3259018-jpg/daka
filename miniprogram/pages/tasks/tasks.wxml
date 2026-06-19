@@ -100,3 +100,4 @@
   </view>
 </view>
 <privacy-popup class="privacy-popup" />
+<login-popup show="{{showLoginPopup}}" bind:profilesuccess="onProfileSuccess" bind:skipsuccess="onProfileSkip" />

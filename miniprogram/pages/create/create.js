@@ -1,7 +1,10 @@
 const { request, ensureLogin, toast, secCheck } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 Page({
-  data: { name: '', startDate: '', endDate: '' },
+  ...profilePopupHandlers,
+
+  data: { name: '', startDate: '', endDate: '', showLoginPopup: false },
 
   async onShow() { await ensureLogin(); },
 
@@ -10,6 +13,7 @@ Page({
   pickEnd(e) { this.setData({ endDate: e.detail.value }); },
 
   async createTask() {
+    if (!requireProfile(this)) return;
     const { name, startDate, endDate } = this.data;
     const trimmed = name.trim();
     if (!trimmed) return toast('请填写任务名称');

@@ -1,4 +1,9 @@
 const { request, ensureLogin, safe } = require('../../utils/api');
+const {
+  requireProfile,
+  shouldPromptProfile,
+  profilePopupHandlers
+} = require('../../utils/profile-guard');
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -27,6 +32,8 @@ const normalizeTask = (task) => {
 };
 
 Page({
+  ...profilePopupHandlers,
+
   data: {
     user: {},
     tasks: [],
@@ -38,7 +45,8 @@ Page({
     todayText: '',
     week: [],
     showJoin: false,
-    joinCode: ''
+    joinCode: '',
+    showLoginPopup: false
   },
 
   async onShow() {
@@ -46,6 +54,12 @@ Page({
     if (tabBar) tabBar.setData({ selected: 0 });
 
     await ensureLogin();
+    const app = getApp();
+    const globalData = (app && app.globalData) || {};
+    this.setData({
+      user: globalData.user || {},
+      showLoginPopup: shouldPromptProfile(globalData.user, globalData.guestMode)
+    });
     await this.load();
   },
 
@@ -57,13 +71,21 @@ Page({
   async load() {
     const app = getApp();
     const cachedUser = (app && app.globalData && app.globalData.user) || {};
-    const [user, rawTasks] = await Promise.all([
-      safe(request('/api/me'), cachedUser),
+    const loadStartUser = { ...cachedUser };
+    const [serverUser, rawTasks] = await Promise.all([
+      safe(request('/api/me'), loadStartUser),
       safe(request('/api/tasks'), [])
     ]);
 
+    const currentUser = (app && app.globalData && app.globalData.user) || {};
+    const user = { ...loadStartUser, ...(serverUser || {}) };
+    Object.keys(currentUser).forEach(key => {
+      const changedWhileLoading = !Object.prototype.hasOwnProperty.call(loadStartUser, key) ||
+        currentUser[key] !== loadStartUser[key];
+      if (changedWhileLoading) user[key] = currentUser[key];
+    });
     if (app && app.globalData) {
-      app.globalData.user = { ...(app.globalData.user || {}), ...user };
+      app.globalData.user = user;
     }
 
     const tasks = (rawTasks || []).map(normalizeTask);
@@ -86,6 +108,10 @@ Page({
 
     this.setData({
       user,
+      showLoginPopup: shouldPromptProfile(
+        user,
+        app && app.globalData && app.globalData.guestMode
+      ),
       tasks,
       pending,
       managed,
@@ -142,6 +168,7 @@ Page({
   },
 
   openCreate() {
+    if (!requireProfile(this)) return;
     wx.navigateTo({ url: '/pages/create/create' });
   }
 });

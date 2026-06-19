@@ -16,3 +16,4 @@
     <view class="btn join-btn" bindtap="submit">确认加入</view>
   </view>
 </view>
+<login-popup show="{{showLoginPopup}}" bind:profilesuccess="onProfileSuccess" bind:skipsuccess="onProfileSkip" />

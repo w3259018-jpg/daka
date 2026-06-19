@@ -21,3 +21,4 @@
     <button class="btn" style="margin-top:52rpx;" bindtap="createTask">创建任务</button>
   </view>
 </view>
+<login-popup show="{{showLoginPopup}}" bind:profilesuccess="onProfileSuccess" bind:skipsuccess="onProfileSkip" />

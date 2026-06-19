@@ -1,7 +1,10 @@
 const { request, ensureLogin, toast } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 Page({
-  data: { code: '', taskId: 0, taskName: '', realName: '', genders: ['男','女','其他'], gIdx: 0, age: '' },
+  ...profilePopupHandlers,
+
+  data: { code: '', taskId: 0, taskName: '', realName: '', genders: ['男','女','其他'], gIdx: 0, age: '', showLoginPopup: false },
 
   async onLoad(q) {
     await ensureLogin();
@@ -18,6 +21,7 @@ Page({
   pickG(e) { this.setData({ gIdx: +e.detail.value }); },
 
   async submit() {
+    if (!requireProfile(this)) return;
     const { code, realName, genders, gIdx, age, taskId } = this.data;
     if (!realName.trim()) return toast('请填写姓名');
     try {
