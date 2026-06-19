@@ -1,0 +1,58 @@
+<view wx:if="{{show}}" class="login-mask" catchtouchmove="stop">
+  <scroll-view
+    class="login-sheet"
+    scroll-y="true"
+    enable-flex="true"
+    aria-role="dialog"
+    aria-label="完善个人资料"
+    catchtap="stop"
+  >
+    <view class="sheet-handle"></view>
+    <view class="brand-avatar">为一</view>
+    <view class="login-title" aria-role="heading">欢迎加入为一自在</view>
+    <view class="login-subtitle">设置你的资料，开始打卡吧</view>
+    <view class="default-avatar">为一</view>
+    <label class="nickname-label" for="nickname">昵称</label>
+    <input
+      id="nickname"
+      class="nickname-input"
+      type="nickname"
+      maxlength="20"
+      value="{{nickname}}"
+      placeholder="输入你的昵称（可选）"
+      aria-label="昵称"
+      bindinput="onNicknameInput"
+    />
+    <button
+      class="confirm-button"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+      aria-role="button"
+      aria-label="确认并开始使用"
+      bindtap="onConfirm"
+    >确认并开始使用</button>
+    <button
+      class="skip-button"
+      disabled="{{loading}}"
+      aria-role="button"
+      aria-label="暂时跳过"
+      bindtap="onSkip"
+    >暂时跳过</button>
+    <view class="agreement-row" aria-role="group" aria-label="协议与隐私">
+      <text class="agreement-text">继续即表示同意</text>
+      <button
+        class="agreement-link"
+        aria-role="button"
+        aria-label="查看用户协议"
+        bindtap="openAgreement"
+      >《用户协议》</button>
+      <text class="agreement-text">和</text>
+      <button
+        class="agreement-link"
+        aria-role="button"
+        aria-label="查看隐私政策"
+        bindtap="openPrivacy"
+      >《隐私政策》</button>
+    </view>
+  </scroll-view>
+</view>
