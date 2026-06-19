@@ -4,3 +4,4 @@ server/uploads/
 server/backups/
 server/data.json
 企业主体SecretKey.csv
+.superpowers/
