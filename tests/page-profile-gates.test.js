@@ -16,6 +16,7 @@ const loadPage = (pageName, {
   guestMode = false,
   requestImpl,
   ensureLoginImpl,
+  uploadImpl,
   useRealProfileGuard = false
 } = {}) => {
   const pageFile = path.join(
@@ -27,6 +28,12 @@ const loadPage = (pageName, {
   const requests = [];
   const secChecks = [];
   const navigations = [];
+  const modals = [];
+  const actionSheets = [];
+  const toasts = [];
+  const wxToasts = [];
+  const uploads = [];
+  const profileGuardOptions = [];
   const app = { globalData: { user: plain(user), guestMode } };
 
   const api = {
@@ -49,7 +56,17 @@ const loadPage = (pageName, {
         return fallback;
       }
     },
-    toast() {},
+    toast(title, icon) {
+      toasts.push({ title, icon });
+    },
+    fullUrl(value) {
+      return value;
+    },
+    async upload(filePath) {
+      uploads.push(filePath);
+      if (uploadImpl) return uploadImpl(filePath);
+      return { url: '/uploaded-media' };
+    },
     async secCheck(value) {
       secChecks.push(value);
       return { safe: true };
@@ -57,9 +74,10 @@ const loadPage = (pageName, {
   };
 
   const stubProfileGuard = {
-    requireProfile(page) {
+    requireProfile(page, options = {}) {
       calls.push('requireProfile');
-      if (!profileAllowed) page.setData({ showLoginPopup: true });
+      profileGuardOptions.push(plain(options));
+      if (!profileAllowed && !options.silent) page.setData({ showLoginPopup: true });
       return profileAllowed;
     },
     shouldPromptProfile(profileUser, profileGuestMode) {
@@ -90,7 +108,9 @@ const loadPage = (pageName, {
     wx: {
       showLoading() {},
       hideLoading() {},
-      showToast() {},
+      showToast(options) {
+        wxToasts.push(plain(options));
+      },
       stopPullDownRefresh() {},
       navigateTo(options) {
         navigations.push(plain(options));
@@ -100,6 +120,12 @@ const loadPage = (pageName, {
       },
       switchTab(options) {
         navigations.push(plain(options));
+      },
+      showModal(options) {
+        modals.push(options);
+      },
+      showActionSheet(options) {
+        actionSheets.push(options);
       }
     },
     setTimeout() {},
@@ -126,6 +152,12 @@ const loadPage = (pageName, {
     requests,
     secChecks,
     navigations,
+    modals,
+    actionSheets,
+    toasts,
+    wxToasts,
+    uploads,
+    profileGuardOptions,
     app
   };
 };
@@ -207,6 +239,107 @@ test('guarded primary flows proceed when the profile guard allows them', async (
   const taskboard = loadPage('taskboard');
   taskboard.context.create();
   assert.deepEqual(taskboard.navigations, [{ url: '/pages/create/create' }]);
+});
+
+test('records.exportNotes opens the profile popup before validation or export request', async () => {
+  const page = loadPage('records', { profileAllowed: false });
+
+  await page.context.exportNotes();
+
+  assert.equal(page.context.data.showLoginPopup, true);
+  assert.deepEqual(page.requests, []);
+  assert.deepEqual(page.toasts, []);
+  assert.deepEqual(page.calls, ['requireProfile']);
+});
+
+test('item.submit opens the profile popup before validation, security check, or request', async () => {
+  const page = loadPage('item', { profileAllowed: false });
+
+  await page.context.submit();
+
+  assert.equal(page.context.data.showLoginPopup, true);
+  assert.deepEqual(page.requests, []);
+  assert.deepEqual(page.secChecks, []);
+  assert.deepEqual(page.toasts, []);
+  assert.deepEqual(page.calls, ['requireProfile']);
+});
+
+test('item.markWatched silently skips the write while playback remains available', async () => {
+  const page = loadPage('item', { profileAllowed: false });
+  let playCount = 0;
+  page.context._audio = { play() { playCount++; } };
+
+  page.context.playAudio();
+  await page.context.markWatched();
+
+  assert.equal(playCount, 1);
+  assert.equal(page.context.data.showLoginPopup, false);
+  assert.deepEqual(page.requests, []);
+  assert.deepEqual(page.toasts, []);
+  assert.deepEqual(page.wxToasts, []);
+  assert.deepEqual(page.calls, ['requireProfile']);
+  assert.deepEqual(page.profileGuardOptions, [{ silent: true }]);
+});
+
+for (const method of ['publish', 'exportAdminData', 'setRole', 'removeMember', 'dissolve']) {
+  test(`task.${method} opens the profile popup before validation, modal, or request`, async () => {
+    const page = loadPage('task', { profileAllowed: false });
+    Object.assign(page.context.data, {
+      id: 7,
+      title: 'New item',
+      mediaUrl: '/uploaded-media'
+    });
+    const event = { currentTarget: { dataset: { uid: 9, role: 'admin' } } };
+
+    await page.context[method](event);
+
+    assert.equal(page.context.data.showLoginPopup, true);
+    assert.deepEqual(page.requests, []);
+    assert.deepEqual(page.secChecks, []);
+    assert.deepEqual(page.modals, []);
+    assert.deepEqual(page.calls, ['requireProfile']);
+  });
+}
+
+test('task.chooseMedia blocks the picker and upload for an incomplete profile', () => {
+  const page = loadPage('task', { profileAllowed: false });
+
+  page.context.chooseMedia();
+
+  assert.equal(page.context.data.showLoginPopup, true);
+  assert.deepEqual(page.actionSheets, []);
+  assert.deepEqual(page.uploads, []);
+  assert.deepEqual(page.calls, ['requireProfile']);
+});
+
+test('newly guarded actions proceed when the profile guard allows them', async () => {
+  const records = loadPage('records');
+  records.context.data.taskId = 7;
+  await records.context.exportNotes();
+  assert.equal(records.requests[0].url, '/api/tasks/7/export');
+
+  const item = loadPage('item');
+  Object.assign(item.context.data, { id: 3, watched: true, note: 'Finished it' });
+  await item.context.submit();
+  assert.deepEqual(item.secChecks, ['Finished it']);
+  assert.equal(item.requests[0].url, '/api/items/3/submit');
+
+  const task = loadPage('task');
+  Object.assign(task.context.data, { id: 7, title: 'New item', mediaUrl: '/media.mp3' });
+  task.context.load = async () => {};
+  await task.context.publish();
+  assert.deepEqual(task.secChecks, ['New item']);
+  assert.equal(task.requests[0].url, '/api/tasks/7/items');
+
+  const admin = loadPage('task');
+  admin.context.data.id = 7;
+  admin.context.load = async () => {};
+  await admin.context.setRole({ currentTarget: { dataset: { uid: 9, role: 'admin' } } });
+  assert.equal(admin.requests[0].url, '/api/tasks/7/members/9/role');
+
+  const picker = loadPage('task');
+  picker.context.chooseMedia();
+  assert.equal(picker.actionSheets.length, 1);
 });
 
 for (const scenario of [
@@ -353,7 +486,7 @@ test('tasks load replaces unchanged incomplete cache with a completed server pro
 });
 
 test('all gated pages render the global login popup bindings', () => {
-  for (const pageName of ['tasks', 'taskboard', 'create', 'join']) {
+  for (const pageName of ['tasks', 'taskboard', 'create', 'join', 'records', 'item', 'task']) {
     const source = fs.readFileSync(path.join(
       __dirname,
       `../miniprogram/pages/${pageName}/${pageName}.wxml`

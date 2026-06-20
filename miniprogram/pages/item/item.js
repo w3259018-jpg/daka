@@ -1,6 +1,9 @@
 const { request, ensureLogin, toast, fullUrl, secCheck } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 Page({
+  ...profilePopupHandlers,
+
   data: {
     id: 0,
     item: null,
@@ -9,7 +12,8 @@ Page({
     submitted: false,
     note: '',
     stars: [],
-    celebrating: false
+    celebrating: false,
+    showLoginPopup: false
   },
 
   onLoad(q) {
@@ -72,6 +76,7 @@ Page({
   },
 
   async markWatched() {
+    if (!requireProfile(this, { silent: true })) return;
     if (this.data.watched) return;
     try {
       await request(`/api/items/${this.data.id}/watched`, { method: 'POST' });
@@ -86,6 +91,7 @@ Page({
   },
 
   async submit() {
+    if (!requireProfile(this)) return;
     if (!this.data.watched) return toast('请先播放并确认观看');
     const note = (this.data.note || '').trim();
     if (!note) return toast('请填写心得');

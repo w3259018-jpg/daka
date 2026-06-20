@@ -29,3 +29,4 @@
   <view wx:for="{{stars}}" wx:key="id" class="star" style="left:{{item.l}}; top:{{item.t}}; --x:{{item.x}}; --y:{{item.y}}; color:{{item.c}};">{{item.ch}}</view>
   <view class="celebrate-text">完成打卡</view>
 </view>
+<login-popup show="{{showLoginPopup}}" bind:profilesuccess="onProfileSuccess" bind:skipsuccess="onProfileSkip" />

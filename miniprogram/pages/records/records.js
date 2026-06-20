@@ -1,4 +1,5 @@
 const { request, ensureLogin, safe, toast } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 const formatRecord = (record) => ({
   id: record.id,
@@ -11,6 +12,8 @@ const formatRecord = (record) => ({
 });
 
 Page({
+  ...profilePopupHandlers,
+
   data: {
     tasks: [],
     names: [],
@@ -21,7 +24,8 @@ Page({
     records: [],
     filtered: [],
     selected: {},
-    overview: { tasks: 0, records: 0, selected: 0 }
+    overview: { tasks: 0, records: 0, selected: 0 },
+    showLoginPopup: false
   },
 
   async onShow() {
@@ -122,6 +126,7 @@ Page({
   },
 
   async exportNotes() {
+    if (!requireProfile(this)) return;
     if (!this.data.taskId) return toast('请选择任务');
     const ids = Object.keys(this.data.selected).filter(k => this.data.selected[k]).map(Number);
     wx.showLoading({ title: '生成中' });
