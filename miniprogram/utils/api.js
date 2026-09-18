@@ -1,6 +1,6 @@
 const app = getApp();
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const ensureLogin = () => {
   if (app.globalData.token) return Promise.resolve(app.globalData.user);
@@ -8,23 +8,29 @@ const ensureLogin = () => {
   return app.refreshLogin();
 };
 
-// 单次请求，不做业务级处理
-const callOnce = (url, opts = {}) => new Promise((resolve, reject) => {
-  wx.request({
-    url: app.globalData.apiBase + url,
-    method: opts.method || 'GET',
-    data: opts.data,
-    timeout: opts.timeout || 30000,
-    header: {
-      'content-type': 'application/json',
-      ...(app.globalData.token && { Authorization: 'Bearer ' + app.globalData.token })
+const callCloud = (url, opts = {}) => new Promise((resolve) => {
+  if (!wx.cloud || !wx.cloud.callFunction) {
+    resolve({ statusCode: 0, data: null, errMsg: 'cloud:fail unavailable' });
+    return;
+  }
+  wx.cloud.callFunction({
+    name: 'api',
+    data: {
+      url,
+      method: opts.method || 'GET',
+      data: opts.data || {}
     },
-    success: r => resolve(r),
-    fail: e => resolve({ statusCode: 0, data: null, errMsg: (e && e.errMsg) || 'request:fail' })
+    success: (r) => {
+      const result = (r && r.result) || {};
+      if (typeof result.statusCode === 'number') resolve(result);
+      else resolve({ statusCode: 200, data: result });
+    },
+    fail: e => resolve({ statusCode: 0, data: null, errMsg: (e && e.errMsg) || 'cloud:fail' })
   });
 });
 
-// 网络层失败自动重试，避免冷启动 / 弱网首次超时直接报错
+const callOnce = (url, opts = {}) => callCloud(url, opts);
+
 const rawRequest = async (url, opts = {}) => {
   const maxRetry = opts.method && opts.method !== 'GET' ? 0 : 1;
   let r = await callOnce(url, opts);
@@ -35,7 +41,7 @@ const rawRequest = async (url, opts = {}) => {
     r = await callOnce(url, opts);
   }
   if (r.statusCode === 0) {
-    return Promise.reject({ status: 0, err: r.errMsg || '网络异常', data: null });
+    return Promise.reject({ status: 0, err: r.errMsg || 'network error', data: null });
   }
   if (r.statusCode < 300) return r.data;
   const err = (r.data && r.data.err) || ('http ' + r.statusCode);
@@ -66,26 +72,39 @@ const request = async (url, opts = {}) => {
   }
 };
 
-const upload = (filePath) => new Promise((resolve, reject) => {
-  wx.uploadFile({
-    url: app.globalData.apiBase + '/api/upload',
-    filePath, name: 'file',
-    timeout: 60000,
-    header: { Authorization: 'Bearer ' + app.globalData.token },
-    success: res => { try { resolve(JSON.parse(res.data)); } catch { reject(res); } },
+const cloudPathFor = (filePath, originalName) => {
+  const source = String(originalName || filePath || '');
+  const match = /\.([A-Za-z0-9]+)(?:[?#].*)?$/.exec(source);
+  const ext = match ? `.${match[1].toLowerCase()}` : '';
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `uploads/${Date.now()}_${rand}${ext}`;
+};
+
+const uploadCloud = (filePath, options = {}) => new Promise((resolve, reject) => {
+  if (!wx.cloud || !wx.cloud.uploadFile) {
+    reject({ status: 0, err: 'cloud upload unavailable', data: null });
+    return;
+  }
+  wx.cloud.uploadFile({
+    cloudPath: cloudPathFor(filePath, options.originalName),
+    filePath,
+    success: res => resolve({ url: res.fileID, fileID: res.fileID }),
     fail: e => reject({ status: 0, err: (e && e.errMsg) || 'upload:fail', data: null })
   });
 });
 
-const toast = (title, icon = 'none') => wx.showToast({ title, icon });
-const fullUrl = (u) => (u && u.startsWith('http')) ? u : (app.globalData.apiBase + (u || ''));
+const upload = (filePath, options = {}) => uploadCloud(filePath, options);
 
-// 安全 await：把异常吞掉返回 fallback，避免页面里大量 try/catch 模板代码
+const toast = (title, icon = 'none') => wx.showToast({ title, icon });
+
+const fullUrl = (u) => {
+  if (!u) return '';
+  if (/^(https?:)?\/\//.test(u) || u.startsWith('cloud://')) return u;
+  return u;
+};
+
 const safe = (p, fallback) => p.then(v => (v == null ? fallback : v), () => fallback);
 
-// 客户端内容安全预检：把文本提交给后端 /api/sec-check，由后端调用微信 msg_sec_check 判断。
-// 网络/服务异常一律放行（safe=true），最终保护由真正的提交接口再做一次 checkText 兜底。
-// 返回 { safe: boolean, reason?: string }
 const secCheck = async (text) => {
   const content = (text || '').trim();
   if (!content) return { safe: true };

@@ -50,8 +50,46 @@ for (const f of walk(ROOT, '.js')) {
   catch (e) { ng('JS  : ' + path.relative(ROOT, f) + ' - ' + e.message); }
 }
 
+// 2.1 API should target the configured WeChat CloudBase environment.
+const loadConfig = (envVersion) => {
+  const file = path.join(ROOT, 'utils', 'config.js');
+  const sandbox = {
+    module: { exports: {} },
+    exports: {},
+    wx: {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion } }),
+      getSystemInfoSync: () => ({ platform: 'devtools' })
+    }
+  };
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), sandbox, { filename: file });
+  return sandbox.module.exports;
+};
+try {
+  const devConfig = loadConfig('develop');
+  const trialConfig = loadConfig('trial');
+  const releaseConfig = loadConfig('release');
+  for (const [name, config] of [['develop', devConfig], ['trial', trialConfig], ['release', releaseConfig]]) {
+    if (config.useCloud === true) ok(`Cloud API enabled for ${name}`);
+    else ng(`Cloud API should be enabled for ${name}`);
+    if (config.cloudEnv === 'cloud1-d3g8sly7ab5d5b8d3') ok(`Cloud env ${name} is configured`);
+    else ng(`Cloud env ${name} should be cloud1-d3g8sly7ab5d5b8d3, got ${config.cloudEnv}`);
+  }
+} catch (e) {
+  ng('API base environment switch - ' + e.message);
+}
+
 // 3. app.json 中所有 page/tabBar 引用的文件都要存在（.js/.wxml/.json）
 const app = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
+if (app.usingComponents && app.usingComponents['login-popup'] === '/components/login-popup/login-popup') {
+  ok('app.json registers login-popup');
+} else {
+  ng('app.json should register login-popup');
+}
+for (const ext of ['.js', '.json', '.wxml', '.wxss']) {
+  const file = path.join(ROOT, 'components', 'login-popup', 'login-popup' + ext);
+  if (fs.existsSync(file)) ok('login-popup file: components/login-popup/login-popup' + ext);
+  else ng('missing login-popup file: components/login-popup/login-popup' + ext);
+}
 for (const p of app.pages) {
   requiredPageFiles(p, 'page file');
 }

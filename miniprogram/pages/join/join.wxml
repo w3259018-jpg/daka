@@ -12,7 +12,6 @@
     <picker range="{{genders}}" value="{{gIdx}}" bindchange="pickG">
       <view class="input">性别：{{genders[gIdx]}}</view>
     </picker>
-    <input class="input" type="number" placeholder="年龄" value="{{age}}" bindinput="onInput" data-k="age" />
     <view class="btn join-btn" bindtap="submit">确认加入</view>
   </view>
 </view>

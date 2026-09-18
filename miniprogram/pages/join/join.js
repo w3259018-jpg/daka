@@ -4,7 +4,7 @@ const { requireProfile, profilePopupHandlers } = require('../../utils/profile-gu
 Page({
   ...profilePopupHandlers,
 
-  data: { code: '', taskId: 0, taskName: '', realName: '', genders: ['男','女','其他'], gIdx: 0, age: '', showLoginPopup: false },
+  data: { code: '', taskId: 0, taskName: '', realName: '', genders: ['男','女','其他'], gIdx: 0, showLoginPopup: false },
 
   async onLoad(q) {
     await ensureLogin();
@@ -22,11 +22,11 @@ Page({
 
   async submit() {
     if (!requireProfile(this)) return;
-    const { code, realName, genders, gIdx, age, taskId } = this.data;
+    const { code, realName, genders, gIdx, taskId } = this.data;
     if (!realName.trim()) return toast('请填写姓名');
     try {
       await request('/api/tasks/join', { method: 'POST',
-        data: { invite_code: code, real_name: realName, gender: genders[gIdx], age } });
+        data: { invite_code: code, real_name: realName, gender: genders[gIdx] } });
       toast('加入成功', 'success');
       setTimeout(() => wx.redirectTo({ url: '/pages/task/task?id=' + taskId }), 600);
     } catch (e) { toast(e.err || '加入失败'); }

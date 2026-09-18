@@ -1,7 +1,7 @@
 const { request } = require('../../utils/api');
 const {
   createFallbackNickname,
-  cacheUser,
+  completeProfile,
   setGuestMode
 } = require('../../utils/profile-guard');
 
@@ -43,8 +43,7 @@ Component({
         }
 
         try {
-          const user = cacheUser(saved);
-          setGuestMode(false);
+          const user = completeProfile(saved);
           this.triggerEvent('profilesuccess', { user });
         } catch (_) {
           wx.showToast({ title: '资料保存失败，请重试', icon: 'none' });

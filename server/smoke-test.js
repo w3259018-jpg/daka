@@ -16,9 +16,9 @@ const routeMissing = r => r.status === 404 && !(r.data && r.data.err);
 
 (async () => {
   const blockedLegacyExport = await req('GET', '/uploads/export_legacy.md');
-  ok(blockedLegacyExport.status === 404 && blockedLegacyExport.data.err === 'not found', '历史本人导出文件不可通过 uploads 公开访问');
+  ok(blockedLegacyExport.status === 404 && (blockedLegacyExport.data.err === 'not found' || routeMissing(blockedLegacyExport)), '历史本人导出文件不可通过 uploads 公开访问');
   const blockedLegacyAdminExport = await req('GET', '/uploads/admin_export_legacy.tsv');
-  ok(blockedLegacyAdminExport.status === 404 && blockedLegacyAdminExport.data.err === 'not found', '历史管理员导出文件不可通过 uploads 公开访问');
+  ok(blockedLegacyAdminExport.status === 404 && (blockedLegacyAdminExport.data.err === 'not found' || routeMissing(blockedLegacyAdminExport)), '历史管理员导出文件不可通过 uploads 公开访问');
 
   // 1. 两位用户静默登录：仅凭 code，账号由后端按 openid 自动绑定
   const a  = await req('POST', '/api/login', { code: 'alice' });
@@ -134,8 +134,8 @@ const routeMissing = r => r.status === 404 && !(r.data && r.data.err);
     && adminExport.data.filename.endsWith('.tsv')
     && typeof adminExport.data.content_base64 === 'string'
     && !('url' in adminExport.data), '管理员可内联导出任务完成数据');
-  ok(adminTsvHeader.join('|') === '成员|任务|提交时间|心得' && adminTsvRow.length === 4, '管理员 TSV 包含正确标题行和四列记录');
-  ok(adminTsvRow[0] === '小明' && adminTsvRow[1] === 'Day1 朗读' && adminTsvRow[3] === "'=SUM(1,1) 分隔 独立回车 独立换行", '管理员 TSV 包含成员任务心得且阻止公式注入');
+  ok(adminTsvHeader.join('|') === '任务|成员|打卡内容|打卡日期|打卡心得' && adminTsvRow.length === 5, '管理员 TSV 包含正确标题行和五列记录');
+  ok(adminTsvRow[0] === '英语晨读' && adminTsvRow[1] === '小明' && adminTsvRow[2] === 'Day1 朗读' && adminTsvRow[4] === "'=SUM(1,1) 分隔 独立回车 独立换行", '管理员 TSV 包含任务、成员、打卡内容、心得且阻止公式注入');
   ok(!adminTsv.includes('/uploads/') && !adminTsv.includes('http://') && !adminTsv.includes('https://'), '管理员 TSV 不包含公开 URL');
   const deniedExport = await req('POST', `/api/tasks/${tid}/admin-export`, {}, tB);
   ok(deniedExport.status === 403, '普通成员不可导出任务完成数据');
@@ -148,7 +148,10 @@ const routeMissing = r => r.status === 404 && !(r.data && r.data.err);
     && exp.data.filename.endsWith('.md')
     && typeof exp.data.content_base64 === 'string'
     && !('url' in exp.data), '本人记录以内联 markdown 导出');
-  ok(markdown.includes('Day1 朗读') && markdown.includes(unsafeNote), '本人内联导出包含本人的任务与心得');
+  ok(markdown.includes('打卡日期：')
+    && markdown.includes('打卡任务名称：英语晨读')
+    && markdown.includes('打卡内容名称：Day1 朗读')
+    && markdown.includes(unsafeNote), '本人内联导出包含打卡日期、任务名称、内容名称和心得');
 
   // 15. 社交接口均已下线
   for (const [method, url, body] of [

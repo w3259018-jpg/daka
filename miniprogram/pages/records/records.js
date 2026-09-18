@@ -11,6 +11,33 @@ const formatRecord = (record) => ({
   date: record.submitted_at ? new Date(record.submitted_at).toLocaleString('zh-CN') : ''
 });
 
+const bytesToUtf8 = (bytes) => {
+  let encoded = '';
+  for (let i = 0; i < bytes.length; i++) {
+    encoded += '%' + bytes[i].toString(16).padStart(2, '0');
+  }
+  try {
+    return decodeURIComponent(encoded);
+  } catch (_) {
+    return String.fromCharCode.apply(null, bytes);
+  }
+};
+
+const decodeExportText = (contentBase64) => {
+  if (!contentBase64) return '';
+  try {
+    if (wx.base64ToArrayBuffer) {
+      return bytesToUtf8(new Uint8Array(wx.base64ToArrayBuffer(contentBase64)));
+    }
+  } catch (_) {}
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(contentBase64, 'base64').toString('utf8');
+    }
+  } catch (_) {}
+  return '';
+};
+
 Page({
   ...profilePopupHandlers,
 
@@ -142,23 +169,13 @@ Page({
     }
   },
 
-  handleExport(contentBase64, filename) {
-    if (!contentBase64) return toast('导出失败');
-    const safeName = String(filename || 'export.md').replace(/[\\/]/g, '') || 'export.md';
-    const filePath = `${wx.env.USER_DATA_PATH}/${safeName}`;
-    wx.getFileSystemManager().writeFile({
-      filePath,
-      data: contentBase64,
-      encoding: 'base64',
-      success: () => wx.openDocument({
-        filePath,
-        showMenu: true,
-        fail: () => wx.setClipboardData({
-          data: filePath,
-          success: () => toast('文件路径已复制', 'success')
-        })
-      }),
-      fail: () => toast('保存失败')
+  handleExport(contentBase64) {
+    const content = decodeExportText(contentBase64);
+    if (!content) return toast('导出失败');
+    wx.setClipboardData({
+      data: content,
+      success: () => toast('导出内容已复制', 'success'),
+      fail: () => toast('复制失败，请重试')
     });
   }
 });

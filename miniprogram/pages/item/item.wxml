@@ -3,12 +3,40 @@
     <view class="title">{{item.title}}</view>
     <view class="muted item-sub">{{item.mediaText}} · {{watched ? '已确认观看' : '请先播放'}}</view>
 
-    <video wx:if="{{item.media_type === 'video'}}" src="{{mediaSrc}}" controls bindplay="onVideoPlay" class="video-player" />
+    <video wx:if="{{item.media_type === 'video'}}" src="{{mediaSrc}}" controls bindplay="onVideoPlay" binderror="onVideoError" class="video-player" />
 
     <view wx:else class="audio-card">
       <view class="row gap-sm">
         <view class="btn btn-line" bindtap="playAudio">播放</view>
         <view class="btn btn-line" bindtap="pauseAudio">暂停</view>
+      </view>
+      <view class="audio-progress">
+        <view class="audio-time-row">
+          <text>{{audioCurrentText}}</text>
+          <text>{{audioDurationText}}</text>
+        </view>
+        <slider
+          class="audio-slider"
+          value="{{audioProgress}}"
+          min="0"
+          max="100"
+          step="0.1"
+          block-size="18"
+          activeColor="#E98243"
+          backgroundColor="#F5D8C4"
+          bindchanging="onAudioProgressChanging"
+          bindchange="onAudioProgressChange"
+        />
+      </view>
+      <view class="audio-speed-row">
+        <view
+          wx:for="{{audioSpeedOptions}}"
+          wx:key="*this"
+          wx:for-item="speed"
+          class="audio-speed {{audioPlaybackRate === speed ? 'audio-speed-active' : ''}}"
+          data-rate="{{speed}}"
+          bindtap="setAudioPlaybackRate"
+        >{{speed}}x</view>
       </view>
       <view class="muted audio-tip">音频会从服务器加载，请保持网络畅通。</view>
     </view>

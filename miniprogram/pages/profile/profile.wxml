@@ -1,8 +1,8 @@
 <view class="page profile-page">
   <view class="card hero-card row profile-hero">
-    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+    <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" aria-label="设置头像">
       <image wx:if="{{user.avatar}}" class="avatar avatar-lg" src="{{user.avatar}}" mode="aspectFill"></image>
-      <view wx:else class="avatar avatar-lg center avatar-empty">+</view>
+      <view wx:else class="avatar avatar-lg center avatar-empty">为一</view>
     </button>
     <view class="profile-main">
       <input

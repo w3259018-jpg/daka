@@ -11,10 +11,10 @@ const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
 const cryptoJs = require('crypto');
+const { mimeFromName } = require('./media-metadata');
 
-const DRIVER = (process.env.STORAGE_DRIVER || 'disk').toLowerCase();
+const DRIVER = (process.env.STORAGE_DRIVER || 'cos').toLowerCase();
 const UP_DIR = path.join(__dirname, 'uploads');
-fs.mkdirSync(UP_DIR, { recursive: true });
 
 const extOf = (name = '', mime = '') => {
   const e = path.extname(name).toLowerCase();
@@ -31,6 +31,25 @@ const makeKey = (originalName, mime) => {
   const ts = Date.now();
   const rand = crypto.randomBytes(6).toString('hex');
   return `${ts}_${rand}${extOf(originalName, mime)}`;
+};
+
+const publicMediaPath = (key) => `/media/${encodeURIComponent(key)}`;
+
+const safeKey = (key) => {
+  const normalized = path.basename(String(key || ''));
+  if (!normalized || normalized !== key) throw new Error('invalid media key');
+  return normalized;
+};
+
+const parseRange = (rangeHeader, size) => {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader || ''));
+  if (!match) return null;
+  const start = match[1] ? Number(match[1]) : 0;
+  const end = match[2] ? Number(match[2]) : size - 1;
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end >= size) {
+    return null;
+  }
+  return { start, end };
 };
 
 // COS 签名算法（V5 版本）
@@ -65,10 +84,10 @@ if (DRIVER === 'cos') {
   const secretKey = process.env.COS_SECRET_KEY;
   const bucket = process.env.COS_BUCKET;
   const region = process.env.COS_REGION;
-  const publicHost = process.env.COS_PUBLIC_HOST || `https://${bucket}.cos.${region}.myqcloud.com`;
+  const publicHost = (process.env.COS_PUBLIC_HOST || `https://${bucket}.cos.${region}.myqcloud.com`).replace(/\/+$/, '');
 
   if (!secretId || !secretKey || !bucket || !region) {
-    console.error('[storage] STORAGE_DRIVER=cos 但缺少必要的 COS_* 环境变量');
+    throw new Error('[storage] STORAGE_DRIVER=cos but missing required COS_* environment variables');
   }
 
   const put = async (buffer, originalName, mime, fixedKey) => {
@@ -88,21 +107,72 @@ if (DRIVER === 'cos') {
         maxContentLength: Infinity
       });
       
-      return `${publicHost}/${Key}`;
+      return publicMediaPath(Key);
     } catch (err) {
       console.error('[storage] COS上传失败:', err.response?.data || err.message);
       throw new Error('COS上传失败');
     }
   };
 
-  driver = { mode: 'cos', put };
+  const get = async (key, range) => {
+    const Key = safeKey(key);
+    const url = `https://${bucket}.cos.${region}.myqcloud.com/${Key}`;
+    const auth = getCosAuth('GET', Key, secretId, secretKey, bucket, region);
+    const headers = {
+      Authorization: auth,
+      Host: `${bucket}.cos.${region}.myqcloud.com`,
+      ...(range && { Range: range })
+    };
+    const response = await axios.get(url, {
+      headers,
+      responseType: 'stream',
+      validateStatus: status => (status >= 200 && status < 300) || status === 206
+    });
+    return {
+      status: response.status,
+      headers: response.headers,
+      stream: response.data
+    };
+  };
+
+  driver = { mode: 'cos', put, get };
 } else {
+  if (DRIVER !== 'disk') {
+    throw new Error(`[storage] unsupported STORAGE_DRIVER=${DRIVER}`);
+  }
+  fs.mkdirSync(UP_DIR, { recursive: true });
   const put = async (buffer, originalName, mime, fixedKey) => {
     const Key = fixedKey || makeKey(originalName, mime);
     fs.writeFileSync(path.join(UP_DIR, Key), buffer);
-    return `/uploads/${Key}`;
+    return publicMediaPath(Key);
   };
-  driver = { mode: 'disk', dir: UP_DIR, put };
+  const get = async (key, range) => {
+    const Key = safeKey(key);
+    const file = path.join(UP_DIR, Key);
+    const stat = fs.statSync(file);
+    const parsedRange = range ? parseRange(range, stat.size) : null;
+    if (range && !parsedRange) {
+      return {
+        status: 416,
+        headers: { 'content-range': `bytes */${stat.size}` },
+        stream: null
+      };
+    }
+    const stream = parsedRange
+      ? fs.createReadStream(file, { start: parsedRange.start, end: parsedRange.end })
+      : fs.createReadStream(file);
+    return {
+      status: parsedRange ? 206 : 200,
+      headers: {
+        'content-type': mimeFromName(Key),
+        'accept-ranges': 'bytes',
+        'content-length': parsedRange ? parsedRange.end - parsedRange.start + 1 : stat.size,
+        ...(parsedRange && { 'content-range': `bytes ${parsedRange.start}-${parsedRange.end}/${stat.size}` })
+      },
+      stream
+    };
+  };
+  driver = { mode: 'disk', dir: UP_DIR, put, get };
 }
 
 console.log('[storage] driver=' + driver.mode);

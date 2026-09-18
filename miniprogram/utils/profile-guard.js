@@ -12,12 +12,12 @@ const shouldPromptProfile = (user, guestMode) => !guestMode && !hasProfile(user)
 
 const setGuestMode = (enabled, app = getApp()) => {
   const guestMode = !!enabled;
-  app.globalData.guestMode = guestMode;
   if (guestMode) {
     wx.setStorageSync('guestMode', true);
   } else {
     wx.removeStorageSync('guestMode');
   }
+  app.globalData.guestMode = guestMode;
 };
 
 const cacheUser = (user, app = getApp()) => {
@@ -25,9 +25,39 @@ const cacheUser = (user, app = getApp()) => {
     ...(app.globalData.user || {}),
     ...(user || {})
   };
-  app.globalData.user = mergedUser;
   wx.setStorageSync('user', mergedUser);
+  app.globalData.user = mergedUser;
   return mergedUser;
+};
+
+const completeProfile = (user, app = getApp()) => {
+  const hadGlobalUser = Object.prototype.hasOwnProperty.call(app.globalData, 'user');
+  const hadGlobalGuestMode = Object.prototype.hasOwnProperty.call(app.globalData, 'guestMode');
+  const previousGlobalUser = app.globalData.user;
+  const previousGlobalGuestMode = app.globalData.guestMode;
+  const previousStoredUser = wx.getStorageSync('user');
+  const previousStoredGuestMode = wx.getStorageSync('guestMode');
+
+  try {
+    const cached = cacheUser(user, app);
+    if (hasProfile(cached)) setGuestMode(false, app);
+    return cached;
+  } catch (error) {
+    try {
+      if (previousStoredUser === undefined) wx.removeStorageSync('user');
+      else wx.setStorageSync('user', previousStoredUser);
+    } catch (_) {}
+    try {
+      if (previousStoredGuestMode === undefined) wx.removeStorageSync('guestMode');
+      else wx.setStorageSync('guestMode', previousStoredGuestMode);
+    } catch (_) {}
+
+    if (hadGlobalUser) app.globalData.user = previousGlobalUser;
+    else delete app.globalData.user;
+    if (hadGlobalGuestMode) app.globalData.guestMode = previousGlobalGuestMode;
+    else delete app.globalData.guestMode;
+    throw error;
+  }
 };
 
 const requireProfile = (page, options = {}) => {
@@ -66,6 +96,7 @@ module.exports = {
   shouldPromptProfile,
   setGuestMode,
   cacheUser,
+  completeProfile,
   requireProfile,
   profilePopupHandlers
 };

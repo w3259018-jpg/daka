@@ -1,4 +1,5 @@
 const { request, ensureLogin, upload, toast, fullUrl, secCheck } = require('../../utils/api');
+const { requireProfile, profilePopupHandlers } = require('../../utils/profile-guard');
 
 const roleText = (role, isCreator) => {
   if (isCreator || role === 'creator') return '创建者';
@@ -14,7 +15,36 @@ const formatDateRange = (task) => {
 
 const formatTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN') : '';
 
+const bytesToUtf8 = (bytes) => {
+  let encoded = '';
+  for (let i = 0; i < bytes.length; i++) {
+    encoded += '%' + bytes[i].toString(16).padStart(2, '0');
+  }
+  try {
+    return decodeURIComponent(encoded);
+  } catch (_) {
+    return String.fromCharCode.apply(null, bytes);
+  }
+};
+
+const decodeExportText = (contentBase64) => {
+  if (!contentBase64) return '';
+  try {
+    if (wx.base64ToArrayBuffer) {
+      return bytesToUtf8(new Uint8Array(wx.base64ToArrayBuffer(contentBase64)));
+    }
+  } catch (_) {}
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(contentBase64, 'base64').toString('utf8');
+    }
+  } catch (_) {}
+  return '';
+};
+
 Page({
+  ...profilePopupHandlers,
+
   data: {
     id: 0,
     task: null,
@@ -32,7 +62,9 @@ Page({
     mediaTypes: ['audio', 'video'],
     mediaLabels: ['音频', '视频'],
     mtIdx: 0,
-    mediaUrl: ''
+    mediaUrl: '',
+    mediaFileName: '',
+    showLoginPopup: false
   },
 
   onLoad(q) {
@@ -103,7 +135,8 @@ Page({
   },
 
   pickMt(e) {
-    this.setData({ mtIdx: +e.detail.value });
+    this._mediaUploadVersion = (this._mediaUploadVersion || 0) + 1;
+    this.setData({ mtIdx: +e.detail.value, mediaUrl: '', mediaFileName: '' });
   },
 
   toggleAdd() {
@@ -115,37 +148,84 @@ Page({
   },
 
   chooseMedia() {
+    if (!requireProfile(this)) return;
     const isAudio = this.data.mediaTypes[this.data.mtIdx] === 'audio';
-    const pick = isAudio
-      ? new Promise((resolve, reject) => wx.chooseMessageFile({
-          count: 1,
-          type: 'file',
-          extension: ['mp3', 'm4a', 'wav', 'aac'],
-          success: r => resolve(r.tempFiles[0].path),
-          fail: reject
-        }))
-      : new Promise((resolve, reject) => wx.chooseMedia({
-          count: 1,
-          mediaType: ['video'],
-          success: r => resolve(r.tempFiles[0].tempFilePath),
-          fail: reject
-        }));
 
-    pick.then(async (filePath) => {
-      wx.showLoading({ title: '上传中' });
-      try {
-        const result = await upload(filePath);
-        this.setData({ mediaUrl: result.url });
-        toast('上传成功', 'success');
-      } catch (_) {
-        toast('上传失败');
-      } finally {
-        wx.hideLoading();
-      }
-    }).catch(() => {});
+    wx.showActionSheet({
+      itemList: ['从微信聊天中选择'],
+      success: ({ tapIndex }) => {
+        const pick = isAudio ? this.pickAudioFile() : this.pickVideoFile();
+        pick.then(file => this.uploadPickedMedia(file)).catch(err => this.handlePickError(err));
+      },
+      fail: err => this.handlePickError(err)
+    });
+  },
+
+  pickAudioFile() {
+    return this.pickMessageFile({
+      type: 'file',
+      extension: ['mp3', 'm4a', 'wav', 'aac', 'flac', 'ogg']
+    });
+  },
+
+  pickVideoFile() {
+    return this.pickMessageFile({
+      type: 'video'
+    });
+  },
+
+  pickMessageFile(options) {
+    return new Promise((resolve, reject) => {
+      if (!wx.chooseMessageFile) return reject({ errMsg: 'chooseMessageFile:fail not supported' });
+      wx.chooseMessageFile({
+        count: 1,
+        ...options,
+        success: (r) => {
+          const file = r.tempFiles && r.tempFiles[0];
+          const filePath = file && (file.path || file.tempFilePath);
+          if (!filePath) return reject({ errMsg: 'chooseMessageFile:fail empty file' });
+          resolve({ filePath, name: file.name || this.fileNameFromPath(filePath) });
+        },
+        fail: reject
+      });
+    });
+  },
+
+  fileNameFromPath(filePath) {
+    return String(filePath || '').split('/').pop() || '已选择文件';
+  },
+
+  async uploadPickedMedia(file) {
+    if (!file || !file.filePath) return toast('未选择文件');
+    const uploadVersion = (this._mediaUploadVersion || 0) + 1;
+    this._mediaUploadVersion = uploadVersion;
+    this._activeMediaUploads = (this._activeMediaUploads || 0) + 1;
+    wx.showLoading({ title: '上传中' });
+    try {
+      const result = await upload(file.filePath, { originalName: file.name });
+      if (uploadVersion !== this._mediaUploadVersion) return;
+      if (!result || !result.url) throw { err: result && result.err };
+      this.setData({ mediaUrl: result.url, mediaFileName: file.name || this.fileNameFromPath(file.filePath) });
+      toast('上传成功', 'success');
+    } catch (err) {
+      if (uploadVersion !== this._mediaUploadVersion) return;
+      toast((err && err.err) || '上传失败');
+    } finally {
+      this._activeMediaUploads -= 1;
+      if (this._activeMediaUploads === 0) wx.hideLoading();
+    }
+  },
+
+  handlePickError(err) {
+    const msg = (err && (err.errMsg || err.message || err.err)) || '';
+    if (/cancel/i.test(msg)) return;
+    console.warn('[choose media]', err);
+    toast('无法打开选择器，请升级微信或在真机中重试');
   },
 
   async publish() {
+    if (!requireProfile(this)) return;
+    if ((this._activeMediaUploads || 0) > 0) return toast('文件上传中，请稍候');
     const { title, mediaTypes, mtIdx, mediaUrl, id } = this.data;
     if (!title.trim() || !mediaUrl) return toast('请填写标题并上传媒体');
 
@@ -162,8 +242,9 @@ Page({
         data: { title: title.trim(), media_type: mediaTypes[mtIdx], media_url: mediaUrl }
       });
       wx.hideLoading();
+      this._mediaUploadVersion = (this._mediaUploadVersion || 0) + 1;
       toast('已发布', 'success');
-      this.setData({ showAdd: false, title: '', mediaUrl: '' });
+      this.setData({ showAdd: false, title: '', mediaUrl: '', mediaFileName: '' });
       await this.load();
     } catch (_) {
       wx.hideLoading();
@@ -215,23 +296,15 @@ Page({
   noop() {},
 
   async exportAdminData() {
+    if (!requireProfile(this)) return;
     try {
       const result = await request(`/api/tasks/${this.data.id}/admin-export`, { method: 'POST' });
-      if (!result.content_base64) return toast('导出内容为空');
-
-      const fs = wx.getFileSystemManager();
-      const filePath = `${wx.env.USER_DATA_PATH}/${result.filename || ('admin_export_' + this.data.id + '.tsv')}`;
-      fs.writeFile({
-        filePath,
-        data: result.content_base64,
-        encoding: 'base64',
-        success: () => {
-          wx.setClipboardData({
-            data: filePath,
-            success: () => toast('导出文件路径已复制', 'success')
-          });
-        },
-        fail: () => toast('写入导出文件失败')
+      const content = decodeExportText(result.content_base64);
+      if (!content) return toast('导出内容为空');
+      wx.setClipboardData({
+        data: content,
+        success: () => toast('导出内容已复制', 'success'),
+        fail: () => toast('复制失败，请重试')
       });
     } catch (err) {
       toast(err.err || '导出失败');
@@ -239,6 +312,7 @@ Page({
   },
 
   async setRole(e) {
+    if (!requireProfile(this)) return;
     const { uid, role } = e.currentTarget.dataset;
     try {
       await request(`/api/tasks/${this.data.id}/members/${uid}/role`, { method: 'POST', data: { role } });
@@ -249,6 +323,7 @@ Page({
   },
 
   removeMember(e) {
+    if (!requireProfile(this)) return;
     const uid = e.currentTarget.dataset.uid;
     wx.showModal({
       title: '确认移除成员',
@@ -263,6 +338,7 @@ Page({
   },
 
   dissolve() {
+    if (!requireProfile(this)) return;
     wx.showModal({
       title: '确认解散任务',
       content: '任务、打卡内容和记录将被删除，且不可恢复。',

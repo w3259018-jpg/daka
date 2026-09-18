@@ -24,8 +24,9 @@
 
 .avatar-empty {
   color: #E98243;
-  font-size: 32rpx;
-  font-weight: 800;
+  font-size: 28rpx;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .profile-main {

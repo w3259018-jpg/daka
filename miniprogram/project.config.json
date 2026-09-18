@@ -1,5 +1,6 @@
 {
   "miniprogramRoot": "./",
+  "cloudfunctionRoot": "cloudfunctions/",
   "projectname": "daka",
   "description": "为一自在",
   "appid": "wx335d862226165636",
@@ -35,5 +36,6 @@
     "ignore": [],
     "include": []
   },
-  "editorSetting": {}
+  "editorSetting": {},
+  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
 }

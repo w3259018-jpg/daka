@@ -20,6 +20,50 @@
   margin-top: 14rpx;
 }
 
+.audio-progress {
+  margin-top: 22rpx;
+}
+
+.audio-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34rpx;
+  color: #8F8278;
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
+.audio-slider {
+  margin: 4rpx 0 0;
+}
+
+.audio-speed-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+
+.audio-speed {
+  min-width: 88rpx;
+  height: 48rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid rgba(233, 130, 67, 0.28);
+  border-radius: 999rpx;
+  color: #A66A3A;
+  font-size: 24rpx;
+  line-height: 48rpx;
+  text-align: center;
+  background: rgba(255, 253, 249, 0.72);
+}
+
+.audio-speed-active {
+  border-color: #E98243;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #F2B36D, #E98243);
+}
+
 .note-input {
   min-height: 220rpx;
   margin-top: 16rpx;

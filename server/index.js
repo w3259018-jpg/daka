@@ -8,6 +8,7 @@ const path = require('node:path');
 const { customAlphabet } = require('nanoid');
 const db = require('./db');
 const storage = require('./storage');
+const { normalizeMediaMetadata } = require('./media-metadata');
 const { insert, find, filter, update, remove } = db;
 
 const SECRET = process.env.JWT_SECRET || 'daka-dev-secret';
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 const code6 = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
@@ -35,6 +37,21 @@ if (storage.mode === 'disk') {
   app.use('/uploads', express.static(storage.dir));
 }
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+app.get('/media/:key', async (req, res) => {
+  try {
+    const media = await storage.get(req.params.key, req.headers.range);
+    res.status(media.status || 200);
+    for (const [name, value] of Object.entries(media.headers || {})) {
+      if (value !== undefined) res.setHeader(name, value);
+    }
+    if (!media.stream) return res.end();
+    media.stream.pipe(res);
+  } catch (e) {
+    console.error('[media]', e && e.message || e);
+    res.status(404).json({ err: 'not found' });
+  }
+});
 
 const sign = (u) => jwt.sign({ id: u.id, openid: u.openid }, SECRET, { expiresIn: '30d' });
 const auth = (req, res, next) => {
@@ -146,6 +163,12 @@ const checkMediaAsync = async (mediaUrl, mediaType) => {
     console.error('[内容安全] 媒体检查失败:', e.message);
     return { safe: true };
   }
+};
+
+const absoluteUrl = (req, url) => {
+  if (!url || /^https?:\/\//i.test(url)) return url;
+  const pathPart = url.startsWith('/') ? url : `/${url}`;
+  return `${req.protocol}://${req.get('host')}${pathPart}`;
 };
 
 const isCreator = (tid, uid) => { const t = find('tasks', t => t.id === tid); return !!t && t.admin_id === uid; };
@@ -268,16 +291,20 @@ app.post('/api/sec-check', auth, async (req, res) => {
 // ---------- 上传 ----------
 app.post('/api/upload', auth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ err: 'no file' });
+  const mediaMetadata = normalizeMediaMetadata(
+    req.body.original_name || req.file.originalname,
+    req.file.mimetype
+  );
   
   // 图片内容安全检查
-  const mime = req.file.mimetype || '';
+  const mime = mediaMetadata.mime;
   if (mime.startsWith('image/')) {
     const check = await checkImage(req.file.buffer, mime);
     if (!check.safe) return res.status(400).json({ err: check.reason });
   }
   
   try {
-    const url = await storage.put(req.file.buffer, req.file.originalname, req.file.mimetype);
+    const url = await storage.put(req.file.buffer, mediaMetadata.originalName, mediaMetadata.mime);
     res.json({ url });
   } catch (e) {
     console.error('[upload]', e && e.message || e);
@@ -447,7 +474,7 @@ app.post('/api/tasks/:id/items', auth, async (req, res) => {
   
   // 音视频异步检测（media_type: 1=音频, 2=视频）
   const mediaCheckType = media_type === 'audio' ? 1 : 2;
-  checkMediaAsync(media_url, mediaCheckType); // 异步执行，不阻塞返回
+  checkMediaAsync(absoluteUrl(req, media_url), mediaCheckType); // 异步执行，不阻塞返回
   
   res.json(insert('checkin_items', { task_id: tid, title, media_type, media_url }));
 });
@@ -523,6 +550,7 @@ app.post('/api/tasks/:id/admin-export', auth, (req, res) => {
     return (recordsByUser.get(member.user_id) || []).map(record => {
       const item = itemById.get(record.item_id) || {};
       return [
+        task.name || '',
         name,
         item.title || '',
         new Date(record.submitted_at).toLocaleString('zh-CN'),
@@ -533,11 +561,12 @@ app.post('/api/tasks/:id/admin-export', auth, (req, res) => {
   if (!rows.length) return res.status(400).json({ err: 'no records' });
 
   const filename = `admin_export_t${tid}_${Date.now()}.tsv`;
-  const buffer = Buffer.from(`成员\t任务\t提交时间\t心得\n${rows.join('\n')}`, 'utf8');
+  const header = ['任务', '成员', '打卡内容', '打卡日期', '打卡心得'].map(tsvCell).join('\t');
+  const payloadBuffer = Buffer.from(`${header}\n${rows.join('\n')}`, 'utf8');
   res.json({
     filename,
     mime_type: 'text/tab-separated-values; charset=utf-8',
-    content_base64: buffer.toString('base64')
+    content_base64: payloadBuffer.toString('base64')
   });
 });
 
@@ -552,16 +581,26 @@ app.post('/api/tasks/:id/export', auth, (req, res) => {
     .sort((a, b) => a.submitted_at - b.submitted_at);
   if (!recs.length) return res.status(400).json({ err: 'no records' });
   const task = find('tasks', t => t.id === tid);
-  const body = recs.map(r => {
-    const item = items.find(i => i.id === r.item_id) || {};
-    return `## ${item.title || ''}\n时间：${new Date(r.submitted_at).toLocaleString('zh-CN')}\n\n${r.note}\n`;
-  }).join('\n---\n\n');
   const filename = `export_t${tid}_u${req.user.id}_${Date.now()}.md`;
-  const buffer = Buffer.from(`# ${task.name} · 我的打卡心得\n\n${body}`, 'utf8');
+  const copyBody = recs.map(r => {
+    const item = items.find(i => i.id === r.item_id) || {};
+    const itemTitle = item.title || '';
+    return [
+      `## 打卡内容名称：${itemTitle}`,
+      '',
+      `打卡日期：${new Date(r.submitted_at).toLocaleString('zh-CN')}`,
+      `打卡任务名称：${task.name || ''}`,
+      `打卡内容名称：${itemTitle}`,
+      '',
+      '打卡心得：',
+      r.note || ''
+    ].join('\n');
+  }).join('\n\n---\n\n');
+  const payloadBuffer = Buffer.from(`# ${task.name || ''} - 我的打卡导出\n\n${copyBody}`, 'utf8');
   res.json({
     filename,
     mime_type: 'text/markdown; charset=utf-8',
-    content_base64: buffer.toString('base64')
+    content_base64: payloadBuffer.toString('base64')
   });
 });
 

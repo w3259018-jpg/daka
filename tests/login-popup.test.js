@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {
+  completeProfile: realCompleteProfile
+} = require('../miniprogram/utils/profile-guard');
 
 const componentFile = path.join(
   __dirname,
@@ -25,7 +28,7 @@ const plain = value => (
 
 const loadComponent = ({
   requestImpl,
-  cacheUserImpl,
+  completeProfileImpl,
   setGuestModeImpl,
   triggerEventImpl
 } = {}) => {
@@ -35,7 +38,7 @@ const loadComponent = ({
   const navigations = [];
   const toasts = [];
   const guardCalls = {
-    cachedUsers: [],
+    completedUsers: [],
     guestModes: []
   };
 
@@ -47,9 +50,9 @@ const loadComponent = ({
 
   const profileGuard = {
     createFallbackNickname: () => '自在用户1000',
-    cacheUser(user) {
-      guardCalls.cachedUsers.push(plain(user));
-      if (cacheUserImpl) return cacheUserImpl(user);
+    completeProfile(user) {
+      guardCalls.completedUsers.push(plain(user));
+      if (completeProfileImpl) return completeProfileImpl(user);
       return { ...user, cached: true };
     },
     setGuestMode(enabled) {
@@ -100,7 +103,7 @@ const loadComponent = ({
   };
 };
 
-test('empty nickname submits fallback, caches user, exits guest mode, and emits success', async () => {
+test('empty nickname submits fallback, completes profile, and emits success', async () => {
   const { context, events, requests, guardCalls } = loadComponent();
 
   await context.onConfirm();
@@ -109,8 +112,8 @@ test('empty nickname submits fallback, caches user, exits guest mode, and emits 
     url: '/api/me/profile',
     options: { method: 'PUT', data: { nickname: '自在用户1000' } }
   }]);
-  assert.deepEqual(guardCalls.cachedUsers, [{ id: 7, nickname: '自在用户1000' }]);
-  assert.deepEqual(guardCalls.guestModes, [false]);
+  assert.deepEqual(guardCalls.completedUsers, [{ id: 7, nickname: '自在用户1000' }]);
+  assert.deepEqual(guardCalls.guestModes, []);
   assert.deepEqual(events, [{
     name: 'profilesuccess',
     detail: { user: { id: 7, nickname: '自在用户1000', cached: true } }
@@ -150,12 +153,8 @@ test('failed request relies on request toast, preserves input, and restores load
 
 for (const failure of [
   {
-    name: 'cacheUser',
-    options: { cacheUserImpl: () => { throw new Error('cache failed'); } }
-  },
-  {
-    name: 'setGuestMode',
-    options: { setGuestModeImpl: () => { throw new Error('guest mode failed'); } }
+    name: 'completeProfile',
+    options: { completeProfileImpl: () => { throw new Error('profile completion failed'); } }
   },
   {
     name: 'triggerEvent',
@@ -174,6 +173,58 @@ for (const failure of [
     assert.equal(context.data.loading, false);
   });
 }
+
+test('real profile persistence failure shows local error and restores state', async () => {
+  const hadWx = Object.prototype.hasOwnProperty.call(global, 'wx');
+  const hadGetApp = Object.prototype.hasOwnProperty.call(global, 'getApp');
+  const previousWx = global.wx;
+  const previousGetApp = global.getApp;
+  const originalUser = { id: 7, avatar: '/old.png' };
+  const app = {
+    globalData: {
+      user: originalUser,
+      guestMode: true
+    }
+  };
+  const storage = new Map([
+    ['user', originalUser],
+    ['guestMode', true]
+  ]);
+  global.getApp = () => app;
+  global.wx = {
+    getStorageSync(key) {
+      return storage.get(key);
+    },
+    setStorageSync(key, value) {
+      storage.set(key, value);
+    },
+    removeStorageSync(key) {
+      if (key === 'guestMode') throw new Error('guest removal failed');
+      storage.delete(key);
+    }
+  };
+
+  try {
+    const { context, events, toasts } = loadComponent({
+      completeProfileImpl: realCompleteProfile
+    });
+    context.data.nickname = '小林';
+
+    await context.onConfirm();
+
+    assert.deepEqual(events, []);
+    assert.deepEqual(toasts, [{ title: '资料保存失败，请重试', icon: 'none' }]);
+    assert.strictEqual(app.globalData.user, originalUser);
+    assert.equal(app.globalData.guestMode, true);
+    assert.strictEqual(storage.get('user'), originalUser);
+    assert.equal(storage.get('guestMode'), true);
+  } finally {
+    if (hadWx) global.wx = previousWx;
+    else delete global.wx;
+    if (hadGetApp) global.getApp = previousGetApp;
+    else delete global.getApp;
+  }
+});
 
 test('second confirm during a pending request does not make another request', async () => {
   let resolveRequest;

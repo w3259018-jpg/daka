@@ -109,7 +109,7 @@
         </picker>
         <view class="row gap-sm">
           <view class="btn btn-line btn-mini" bindtap="chooseMedia">选择文件</view>
-          <view class="muted media-path">{{mediaUrl || '未选择文件'}}</view>
+          <view class="muted media-path">{{mediaFileName || mediaUrl || '未选择文件'}}</view>
         </view>
         <view class="btn publish-btn" bindtap="publish">发布打卡内容</view>
       </view>
@@ -157,3 +157,4 @@
 </view>
 <view class="muted" wx:else style="padding:60rpx; text-align:center;">加载中</view>
 <privacy-popup class="privacy-popup" />
+<login-popup show="{{showLoginPopup}}" bind:profilesuccess="onProfileSuccess" bind:skipsuccess="onProfileSkip" />

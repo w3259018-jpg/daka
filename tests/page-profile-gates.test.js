@@ -17,6 +17,8 @@ const loadPage = (pageName, {
   requestImpl,
   ensureLoginImpl,
   uploadImpl,
+  uploadResult = { url: '/uploaded-media' },
+  chooseMessageFileTempFiles = [],
   useRealProfileGuard = false
 } = {}) => {
   const pageFile = path.join(
@@ -32,7 +34,12 @@ const loadPage = (pageName, {
   const actionSheets = [];
   const toasts = [];
   const wxToasts = [];
+  const clipboardWrites = [];
   const uploads = [];
+  const chooseMessageFileCalls = [];
+  const showLoadingCalls = [];
+  const audioContexts = [];
+  let hideLoadingCalls = 0;
   const profileGuardOptions = [];
   const app = { globalData: { user: plain(user), guestMode } };
 
@@ -62,10 +69,10 @@ const loadPage = (pageName, {
     fullUrl(value) {
       return value;
     },
-    async upload(filePath) {
-      uploads.push(filePath);
-      if (uploadImpl) return uploadImpl(filePath);
-      return { url: '/uploaded-media' };
+    async upload(filePath, options = {}) {
+      uploads.push({ filePath, options: plain(options) });
+      if (uploadImpl) return uploadImpl(filePath, options);
+      return plain(uploadResult);
     },
     async secCheck(value) {
       secChecks.push(value);
@@ -106,10 +113,18 @@ const loadPage = (pageName, {
     },
     getApp: () => app,
     wx: {
-      showLoading() {},
-      hideLoading() {},
+      showLoading(options) {
+        showLoadingCalls.push(plain(options));
+      },
+      hideLoading() {
+        hideLoadingCalls++;
+      },
       showToast(options) {
         wxToasts.push(plain(options));
+      },
+      setClipboardData(options) {
+        clipboardWrites.push({ data: options.data });
+        if (options.success) options.success();
       },
       stopPullDownRefresh() {},
       navigateTo(options) {
@@ -126,11 +141,73 @@ const loadPage = (pageName, {
       },
       showActionSheet(options) {
         actionSheets.push(options);
+      },
+      chooseMessageFile(options) {
+        const { success, fail, ...recordedOptions } = options;
+        chooseMessageFileCalls.push(plain(recordedOptions));
+        success({ tempFiles: plain(chooseMessageFileTempFiles) });
+      },
+      createInnerAudioContext() {
+        const handlers = {};
+        const audio = {
+          src: '',
+          duration: 0,
+          currentTime: 0,
+          playbackRate: 1,
+          destroyed: false,
+          playCount: 0,
+          pauseCount: 0,
+          seekCalls: [],
+          onPlay(handler) {
+            handlers.play = handler;
+          },
+          onTimeUpdate(handler) {
+            handlers.timeUpdate = handler;
+          },
+          onCanplay(handler) {
+            handlers.canplay = handler;
+          },
+          onEnded(handler) {
+            handlers.ended = handler;
+          },
+          onError(handler) {
+            handlers.error = handler;
+          },
+          play() {
+            this.playCount++;
+            if (handlers.play) handlers.play();
+          },
+          pause() {
+            this.pauseCount++;
+          },
+          seek(position) {
+            this.seekCalls.push(position);
+            this.currentTime = position;
+          },
+          destroy() {
+            this.destroyed = true;
+          },
+          triggerCanplay() {
+            if (handlers.canplay) handlers.canplay();
+          },
+          triggerTimeUpdate() {
+            if (handlers.timeUpdate) handlers.timeUpdate();
+          },
+          triggerEnded() {
+            if (handlers.ended) handlers.ended();
+          },
+          triggerError(error) {
+            if (handlers.error) handlers.error(error);
+          }
+        };
+        audioContexts.push(audio);
+        return audio;
       }
     },
     setTimeout() {},
-    console,
+    console: { log() {}, warn() {}, error() {} },
     Date,
+    Buffer,
     Promise,
     encodeURIComponent,
     decodeURIComponent
@@ -156,7 +233,14 @@ const loadPage = (pageName, {
     actionSheets,
     toasts,
     wxToasts,
+    clipboardWrites,
     uploads,
+    chooseMessageFileCalls,
+    showLoadingCalls,
+    audioContexts,
+    get hideLoadingCalls() {
+      return hideLoadingCalls;
+    },
     profileGuardOptions,
     app
   };
@@ -231,6 +315,11 @@ test('guarded primary flows proceed when the profile guard allows them', async (
   });
   await join.context.submit();
   assert.equal(join.requests[0].url, '/api/tasks/join');
+  assert.deepEqual(join.requests[0].options.data, {
+    invite_code: 'ABC123',
+    real_name: 'Alice',
+    gender: '男'
+  });
 
   const tasks = loadPage('tasks');
   tasks.context.openCreate();
@@ -250,6 +339,42 @@ test('records.exportNotes opens the profile popup before validation or export re
   assert.deepEqual(page.requests, []);
   assert.deepEqual(page.toasts, []);
   assert.deepEqual(page.calls, ['requireProfile']);
+});
+
+test('records.exportNotes copies decoded export content instead of a file path', async () => {
+  const content = '# 打卡导出\n\n打卡任务名称：Morning\n';
+  const page = loadPage('records', {
+    requestImpl(url) {
+      if (url === '/api/tasks/7/export') {
+        return { content_base64: Buffer.from(content, 'utf8').toString('base64') };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }
+  });
+  page.context.data.taskId = 7;
+
+  await page.context.exportNotes();
+
+  assert.deepEqual(page.clipboardWrites, [{ data: content }]);
+  assert.equal(page.toasts.at(-1).title, '导出内容已复制');
+});
+
+test('task.exportAdminData copies decoded admin export content instead of a file path', async () => {
+  const content = '任务\t成员\t打卡内容\t打卡日期\t打卡心得\nMorning\tAlice\tDay1\t2026/7/1\tDone';
+  const page = loadPage('task', {
+    requestImpl(url) {
+      if (url === '/api/tasks/7/admin-export') {
+        return { content_base64: Buffer.from(content, 'utf8').toString('base64') };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }
+  });
+  page.context.data.id = 7;
+
+  await page.context.exportAdminData();
+
+  assert.deepEqual(page.clipboardWrites, [{ data: content }]);
+  assert.equal(page.toasts.at(-1).title, '导出内容已复制');
 });
 
 test('item.submit opens the profile popup before validation, security check, or request', async () => {
@@ -310,6 +435,245 @@ test('task.chooseMedia blocks the picker and upload for an incomplete profile', 
   assert.deepEqual(page.actionSheets, []);
   assert.deepEqual(page.uploads, []);
   assert.deepEqual(page.calls, ['requireProfile']);
+});
+
+for (const scenario of [
+  {
+    name: 'audio',
+    mtIdx: 0,
+    fileName: 'voice.mp3',
+    expectedPickerOptions: {
+      count: 1,
+      type: 'file',
+      extension: ['mp3', 'm4a', 'wav', 'aac', 'flac', 'ogg']
+    }
+  },
+  {
+    name: 'video',
+    mtIdx: 1,
+    fileName: 'lesson.mp4',
+    expectedPickerOptions: {
+      count: 1,
+      type: 'video'
+    }
+  }
+]) {
+  test(`task.chooseMedia uploads the selected ${scenario.name} with its original filename`, async () => {
+    const page = loadPage('task', {
+      chooseMessageFileTempFiles: [{
+        path: 'wxfile://tmp/no-extension',
+        name: scenario.fileName
+      }]
+    });
+    page.context.data.mtIdx = scenario.mtIdx;
+
+    page.context.chooseMedia();
+
+    assert.equal(page.actionSheets.length, 1);
+    assert.deepEqual(plain(page.actionSheets[0].itemList), ['从微信聊天中选择']);
+
+    page.actionSheets[0].success({ tapIndex: 0 });
+    await flushPromises();
+
+    assert.deepEqual(page.chooseMessageFileCalls, [scenario.expectedPickerOptions]);
+    assert.deepEqual(page.uploads, [{
+      filePath: 'wxfile://tmp/no-extension',
+      options: { originalName: scenario.fileName }
+    }]);
+  });
+}
+
+for (const scenario of [
+  { result: { err: 'unsupported' }, expectedToast: 'unsupported' },
+  { result: {}, expectedToast: '上传失败' }
+]) {
+  test(`task.chooseMedia rejects an upload result without a URL: ${scenario.expectedToast}`, async () => {
+    const page = loadPage('task', {
+      uploadResult: scenario.result,
+      chooseMessageFileTempFiles: [{
+        path: 'wxfile://tmp/no-extension',
+        name: 'voice.mp3'
+      }]
+    });
+
+    page.context.chooseMedia();
+    page.actionSheets[0].success({ tapIndex: 0 });
+    await flushPromises();
+
+    assert.equal(page.context.data.mediaUrl, '');
+    assert.equal(page.context.data.mediaFileName, '');
+    assert.deepEqual(page.toasts, [{ title: scenario.expectedToast, icon: undefined }]);
+    assert.equal(page.hideLoadingCalls, 1);
+  });
+}
+
+test('task.uploadPickedMedia keeps loading visible until all concurrent uploads settle', async () => {
+  const pendingUploads = [deferred(), deferred()];
+  let uploadIndex = 0;
+  const page = loadPage('task', {
+    uploadImpl: () => pendingUploads[uploadIndex++].promise
+  });
+
+  const uploadA = page.context.uploadPickedMedia({ filePath: 'wxfile://tmp/a', name: 'a.mp3' });
+  const uploadB = page.context.uploadPickedMedia({ filePath: 'wxfile://tmp/b', name: 'b.mp3' });
+
+  assert.equal(page.showLoadingCalls.length, 2);
+  assert.equal(page.hideLoadingCalls, 0);
+
+  pendingUploads[0].resolve({ url: '/a.mp3' });
+  await uploadA;
+  assert.equal(page.hideLoadingCalls, 0);
+
+  pendingUploads[1].resolve({ url: '/b.mp3' });
+  await uploadB;
+  assert.equal(page.hideLoadingCalls, 1);
+});
+
+test('task.pickMt ignores completion from an upload started for the previous media type', async () => {
+  const pendingUpload = deferred();
+  const page = loadPage('task', {
+    uploadImpl: () => pendingUpload.promise,
+    chooseMessageFileTempFiles: [{
+      path: 'wxfile://tmp/no-extension',
+      name: 'voice.mp3'
+    }]
+  });
+
+  page.context.chooseMedia();
+  page.actionSheets[0].success({ tapIndex: 0 });
+  await flushPromises();
+  assert.equal(page.uploads.length, 1);
+
+  page.context.pickMt({ detail: { value: '1' } });
+  pendingUpload.resolve({ url: '/stale-audio.mp3' });
+  await flushPromises();
+
+  assert.equal(page.context.data.mtIdx, 1);
+  assert.equal(page.context.data.mediaUrl, '');
+  assert.equal(page.context.data.mediaFileName, '');
+  assert.deepEqual(page.toasts, []);
+});
+
+test('task.pickMt ignores rejection from an upload started for the previous media type', async () => {
+  const pendingUpload = deferred();
+  const page = loadPage('task', {
+    uploadImpl: () => pendingUpload.promise
+  });
+
+  const uploading = page.context.uploadPickedMedia({
+    filePath: 'wxfile://tmp/no-extension',
+    name: 'voice.mp3'
+  });
+  page.context.pickMt({ detail: { value: '1' } });
+  pendingUpload.reject({ err: 'stale failure' });
+  await uploading;
+
+  assert.equal(page.context.data.mediaUrl, '');
+  assert.equal(page.context.data.mediaFileName, '');
+  assert.deepEqual(page.toasts, []);
+});
+
+test('task.publish invalidates the prior upload version before resetting media fields', async () => {
+  const page = loadPage('task');
+  Object.assign(page.context.data, {
+    id: 7,
+    title: 'Existing item',
+    mediaUrl: '/existing.mp3',
+    mediaFileName: 'existing.mp3'
+  });
+  page.context._mediaUploadVersion = 1;
+  page.context.load = async () => {};
+
+  await page.context.publish();
+
+  assert.equal(page.context._mediaUploadVersion, 2);
+  assert.equal(page.context.data.mediaUrl, '');
+  assert.equal(page.context.data.mediaFileName, '');
+  assert.deepEqual(page.toasts, [{ title: '已发布', icon: 'success' }]);
+});
+
+test('task.publish waits for an active media upload before validation or loading', async () => {
+  const page = loadPage('task');
+  page.context._activeMediaUploads = 1;
+  Object.assign(page.context.data, {
+    id: 7,
+    title: 'New item',
+    mediaUrl: '/existing.mp3'
+  });
+
+  await page.context.publish();
+
+  assert.deepEqual(page.toasts, [{ title: '文件上传中，请稍候', icon: undefined }]);
+  assert.deepEqual(page.secChecks, []);
+  assert.deepEqual(page.requests, []);
+  assert.deepEqual(page.showLoadingCalls, []);
+});
+
+test('item.setupAudio reports audio playback load errors', () => {
+  const page = loadPage('item');
+
+  page.context.setupAudio('/media/voice.mp3');
+  page.audioContexts[0].triggerError({ errMsg: 'MEDIA_ERR_SRC_NOT_SUPPORTED' });
+
+  assert.deepEqual(page.toasts, [{ title: '音频加载失败，请检查网络或文件格式', icon: undefined }]);
+});
+
+test('item audio progress follows playback and seeks when dragged', () => {
+  const page = loadPage('item');
+
+  page.context.setupAudio('/media/voice.mp3');
+  const audio = page.audioContexts[0];
+  audio.duration = 125;
+  audio.currentTime = 25;
+  audio.triggerCanplay();
+  audio.triggerTimeUpdate();
+
+  assert.equal(page.context.data.audioDuration, 125);
+  assert.equal(page.context.data.audioCurrent, 25);
+  assert.equal(page.context.data.audioProgress, 20);
+  assert.equal(page.context.data.audioCurrentText, '00:25');
+  assert.equal(page.context.data.audioDurationText, '02:05');
+
+  assert.equal(typeof page.context.onAudioProgressChanging, 'function');
+  assert.equal(typeof page.context.onAudioProgressChange, 'function');
+  page.context.onAudioProgressChanging({ detail: { value: 40 } });
+  page.context.onAudioProgressChange({ detail: { value: 40 } });
+
+  assert.deepEqual(audio.seekCalls, [50]);
+  assert.equal(page.context.data.audioCurrent, 50);
+  assert.equal(page.context.data.audioProgress, 40);
+  assert.equal(page.context.data.audioCurrentText, '00:50');
+});
+
+test('item audio speed picker updates the playback rate', () => {
+  const page = loadPage('item');
+
+  page.context.setupAudio('/media/voice.mp3');
+  assert.deepEqual(page.context.data.audioSpeedOptions, [0.5, 1, 1.25, 1.5, 2]);
+  assert.equal(page.audioContexts[0].playbackRate, 1);
+
+  assert.equal(typeof page.context.setAudioPlaybackRate, 'function');
+  page.context.setAudioPlaybackRate({ currentTarget: { dataset: { rate: '1.5' } } });
+
+  assert.equal(page.context.data.audioPlaybackRate, 1.5);
+  assert.equal(page.audioContexts[0].playbackRate, 1.5);
+});
+
+test('item.onVideoError reports video playback load errors', () => {
+  const page = loadPage('item');
+
+  page.context.onVideoError({ detail: { errMsg: 'MEDIA_ERR_SRC_NOT_SUPPORTED' } });
+
+  assert.deepEqual(page.toasts, [{ title: '视频加载失败，请检查网络或文件格式', icon: undefined }]);
+});
+
+test('item page binds video playback errors to the page handler', () => {
+  const source = fs.readFileSync(path.join(
+    __dirname,
+    '../miniprogram/pages/item/item.wxml'
+  ), 'utf8');
+
+  assert.match(source, /<video\b[^>]*\bbinderror="onVideoError"/);
 });
 
 test('newly guarded actions proceed when the profile guard allows them', async () => {
@@ -444,6 +808,17 @@ test('pending tasks load preserves a newer profile while accepting missing serve
   });
   assert.deepEqual(plain(page.app.globalData.user), page.context.data.user);
   assert.equal(page.context.data.showLoginPopup, false);
+});
+
+test('join page does not ask new users for age', () => {
+  const source = fs.readFileSync(path.join(
+    __dirname,
+    '../miniprogram/pages/join/join.wxml'
+  ), 'utf8');
+
+  assert.doesNotMatch(source, /placeholder="年龄"/);
+  assert.doesNotMatch(source, /data-k="age"/);
+  assert.doesNotMatch(source, /value="\{\{age\}\}"/);
 });
 
 test('tasks load replaces unchanged incomplete cache with a completed server profile', async t => {
